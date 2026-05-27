@@ -45,14 +45,6 @@ Picks stored in `localStorage`. Nothing leaves your browser.
 
 ---
 
-## Deployment
-
-Hosted on GitHub Pages.
-
-Live at: `https://luffysbigbrother.github.io/diamond`
-
-To run locally, serve the file from any static server — opening it directly as a file will block the MLB API due to CORS.
-
 ```bash
 # Quick local server (Python)
 python3 -m http.server 8000
