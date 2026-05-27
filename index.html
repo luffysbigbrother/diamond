@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diamond</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800;900&family=Barlow:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────
+   TOKENS
+───────────────────────────────────────── */
+:root {
+  --bg:          #0a0c0f;
+  --surface:     #111318;
+  --surface2:    #181c23;
+  --surface3:    #1e2330;
+  --border:      #1f2530;
+  --border2:     #2a3140;
+  --text:        #e8edf5;
+  --text-dim:    #6b7a94;
+  --text-muted:  #3d4a5c;
+  --accent:      #c8a84b;
+  --accent-dim:  rgba(200,168,75,0.12);
+  --green:       #22c55e;
+  --green-dim:   rgba(34,197,94,0.14);
+  --green-bg:    rgba(34,197,94,0.07);
+  --red:         #ef4444;
+  --red-dim:     rgba(239,68,68,0.14);
+  --red-bg:      rgba(239,68,68,0.07);
+  --blue:        #3b82f6;
+  --live:        #ff4d4d;
+}
+
+/* ─────────────────────────────────────────
+   RESET
+───────────────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+button { font-family:inherit; cursor:pointer; border:none; background:none; }
+img { display:block; }
+
+/* ─────────────────────────────────────────
+   BASE
+───────────────────────────────────────── */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline texture */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 2px,
+    rgba(255,255,255,0.011) 2px, rgba(255,255,255,0.011) 4px
+  );
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ─────────────────────────────────────────
+   HEADER
+───────────────────────────────────────── */
+header {
+  position:sticky; top:0; z-index:100;
+  background:rgba(10,12,15,0.96);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;
+}
+.header-inner {
+  max-width:1200px; margin:0 auto;
+  height:56px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-mark {
+  width:26px; height:26px;
+  background:var(--accent);
+  transform:rotate(45deg);
+  flex-shrink:0;
+  position:relative;
+}
+.logo-mark::after {
+  content:'';
+  position:absolute; inset:7px;
+  background:var(--bg);
+}
+.logo-text {
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:800; font-size:17px;
+  letter-spacing:0.09em; text-transform:uppercase;
+}
+.logo-text span { color:var(--accent); }
+
+.header-meta {
+  display:flex; align-items:center; gap:20px;
+}
+.week-range {
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px; color:var(--text-dim);
+  letter-spacing:0.08em; text-transform:uppercase;
+}
+.accuracy-pill {
+  display:flex; align-items:center; gap:8px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  padding:5px 12px;
+}
+.accuracy-pill .pill-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px; font-weight:700;
+  letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--text-muted);
+}
+.accuracy-pill .pill-value {
+  font-family:'Share Tech Mono',monospace;
+  font-size:14px; color:var(--accent);
+}
+
+/* ─────────────────────────────────────────
+   MAIN
+───────────────────────────────────────── */
+main {
+  max-width:1200px; margin:0 auto;
+  padding:28px 24px 80px;
+  position:relative; z-index:1;
+}
+
+/* ─────────────────────────────────────────
+   STATS ROW
+───────────────────────────────────────── */
+.stats-row {
+  display:flex; gap:1px;
+  margin-bottom:28px;
+}
+.stat-block {
+  flex:1;
+  background:var(--surface);
+  border:1px solid var(--border);
+  padding:12px 16px;
+  display:flex; flex-direction:column; gap:3px;
+}
+.stat-block .s-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px; font-weight:700;
+  letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--text-muted);
+}
+.stat-block .s-value {
+  font-family:'Share Tech Mono',monospace;
+  font-size:24px; line-height:1;
+  color:var(--text);
+}
+.stat-block .s-sub {
+  font-size:10px; color:var(--text-muted); font-weight:300;
+}
+.acc-bar {
+  height:2px; background:var(--border);
+  margin-top:6px; overflow:hidden;
+}
+.acc-fill {
+  height:100%; background:var(--green);
+  transition:width 0.7s ease;
+}
+
+/* ─────────────────────────────────────────
+   SECTION HEADER
+───────────────────────────────────────── */
+.section-header {
+  display:flex; align-items:baseline; gap:14px;
+  margin-bottom:20px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+}
+.section-title {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:12px; font-weight:700;
+  letter-spacing:0.2em; text-transform:uppercase;
+  color:var(--text-dim);
+}
+.section-count {
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px; color:var(--text-muted);
+}
+
+/* ─────────────────────────────────────────
+   SERIES GRID
+───────────────────────────────────────── */
+.series-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(370px, 1fr));
+  gap:14px;
+}
+
+/* ─────────────────────────────────────────
+   SERIES CARD
+───────────────────────────────────────── */
+.series-card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-top:2px solid var(--border2);
+  overflow:hidden;
+  transition:border-color 0.2s, box-shadow 0.2s;
+  animation:fadeUp 0.35s ease both;
+}
+.series-card:hover { border-color:var(--border2); }
+.series-card.is-locked { border-top-color:var(--accent); }
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(10px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.series-card:nth-child(1)  { animation-delay:0.04s; }
+.series-card:nth-child(2)  { animation-delay:0.08s; }
+.series-card:nth-child(3)  { animation-delay:0.12s; }
+.series-card:nth-child(4)  { animation-delay:0.16s; }
+.series-card:nth-child(5)  { animation-delay:0.20s; }
+.series-card:nth-child(6)  { animation-delay:0.24s; }
+.series-card:nth-child(n+7){ animation-delay:0.28s; }
+
+/* Card top bar */
+.card-topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 14px 0;
+}
+.series-badge {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px; font-weight:700;
+  letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--text-muted);
+  border:1px solid var(--border2);
+  padding:2px 7px;
+}
+.series-venue {
+  font-size:10px; color:var(--text-muted); font-weight:300;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:180px;
+}
+.series-daterange {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px; color:var(--text-muted);
+  letter-spacing:0.05em;
+}
+
+/* Teams row */
+.teams-row {
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  padding:12px 16px 10px;
+  gap:8px;
+}
+.team-side {
+  display:flex; flex-direction:column; gap:4px;
+}
+.team-side.away { align-items:flex-start; }
+.team-side.home { align-items:flex-end; }
+
+.team-logo {
+  width:52px; height:52px;
+  object-fit:contain;
+  filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+.team-logo-fallback {
+  width:52px; height:52px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:800; font-size:15px; letter-spacing:0.05em;
+  border:1px solid var(--border2);
+  background:var(--surface2); color:var(--text-dim);
+}
+.team-name {
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:700; font-size:16px;
+  letter-spacing:0.04em; text-transform:uppercase;
+  line-height:1;
+}
+.team-record {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px; color:var(--text-muted);
+  letter-spacing:0.06em;
+}
+.at-divider {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px; font-weight:600;
+  letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--text-muted);
+}
+
+/* ─────────────────────────────────────────
+   DAILY PICK ROWS — the core game mechanic
+───────────────────────────────────────── */
+.pick-rows {
+  padding:0 12px 12px;
+  display:flex; flex-direction:column; gap:8px;
+}
+
+.pick-row {
+  display:flex; flex-direction:column; gap:5px;
+}
+
+/* Row header: "Day 1 · Mon May 27" */
+.row-header {
+  display:flex; align-items:center; gap:8px;
+}
+.row-day-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px; font-weight:700;
+  letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--text-muted);
+  white-space:nowrap;
+}
+.row-day-label.is-today { color:var(--accent); }
+.row-divider {
+  flex:1; height:1px; background:var(--border);
+}
+.row-status-tag {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:9px; font-weight:700;
+  letter-spacing:0.14em; text-transform:uppercase;
+  padding:1px 6px;
+}
+.row-status-tag.tag-locked   { color:var(--accent); border:1px solid rgba(200,168,75,0.3); }
+.row-status-tag.tag-open     { color:var(--text-muted); border:1px solid var(--border2); }
+.row-status-tag.tag-future   { color:var(--text-muted); border:1px solid var(--border); opacity:0.5; }
+
+/* The slots for one row */
+.row-slots {
+  display:flex; gap:5px;
+}
+
+/* ─────────────────────────────────────────
+   GAME SLOT
+───────────────────────────────────────── */
+.game-slot { flex:1; }
+
+.slot-box {
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  overflow:hidden;
+  position:relative;
+  transition:border-color 0.15s;
+  user-select:none;
+}
+
+/* Hover only when pickable */
+.slot-box.is-pickable:hover { border-color:var(--accent); }
+
+/* Pre-filled result (game already played, this slot is read-only history) */
+.slot-box.is-result-correct {
+  border-color:var(--green) !important;
+  background:var(--green-bg) !important;
+}
+.slot-box.is-result-wrong {
+  border-color:var(--red) !important;
+  background:var(--red-bg) !important;
+}
+.slot-box.is-result-nopick {
+  border-color:var(--border2) !important;
+  opacity:0.5;
+}
+
+/* Future game — dimmed */
+.slot-box.is-future {
+  opacity:0.3;
+  pointer-events:none;
+}
+
+/* The two tap-targets */
+.slot-halves {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  height:88px;
+}
+
+.slot-half {
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:4px; padding:8px 4px;
+  cursor:pointer;
+  transition:background 0.12s, transform 0.1s;
+  position:relative;
+}
+.slot-half:first-child { border-right:1px solid var(--border2); }
+.slot-half:disabled, .slot-half[disabled] { pointer-events:none; }
+
+.slot-half:active:not([disabled]) { transform:scale(0.95); }
+
+/* Idle state */
+.slot-half .h-logo {
+  width:28px; height:28px;
+  object-fit:contain;
+  opacity:0.6;
+  transition:opacity 0.12s, transform 0.12s;
+}
+.slot-half .h-abbr {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px; font-weight:700;
+  letter-spacing:0.07em; text-transform:uppercase;
+  color:var(--text-muted);
+  transition:color 0.12s;
+}
+
+/* Hover */
+.slot-box.is-pickable .slot-half:hover .h-logo  { opacity:1; transform:scale(1.08); }
+.slot-box.is-pickable .slot-half:hover .h-abbr  { color:var(--text-dim); }
+
+/* Selected (picked) */
+.slot-half.is-picked .h-logo  { opacity:1; transform:scale(1.06); }
+.slot-half.is-picked .h-abbr  { color:var(--text); }
+.slot-half.is-picked::after {
+  content:'W';
+  position:absolute; top:4px; right:5px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:9px; font-weight:800;
+  letter-spacing:0.1em;
+  color:var(--accent);
+}
+
+/* Pick flash animation */
+@keyframes pickFlash {
+  0%   { background:rgba(200,168,75,0.22); }
+  100% { background:transparent; }
+}
+.slot-half.flash-pick { animation:pickFlash 0.35s ease forwards; }
+
+/* Result overlay — replaces the halves on completed games */
+.slot-result-overlay {
+  display:none;
+  position:absolute; inset:0;
+  flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:2px;
+  pointer-events:none;
+}
+.slot-box.is-result-correct .slot-result-overlay,
+.slot-box.is-result-wrong   .slot-result-overlay { display:flex; }
+.slot-box.is-result-correct .slot-halves,
+.slot-box.is-result-wrong   .slot-halves { opacity:0.18; pointer-events:none; }
+
+.overlay-winner {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px; font-weight:800;
+  letter-spacing:0.1em; text-transform:uppercase;
+}
+.is-result-correct .overlay-winner { color:var(--green); }
+.is-result-wrong   .overlay-winner { color:var(--red); }
+
+.overlay-score {
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px; color:var(--text-dim);
+}
+.overlay-pick-note {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:9px; font-weight:600;
+  letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--text-muted);
+}
+
+/* Reveal animation */
+@keyframes revealSlot {
+  0%   { opacity:0; transform:scale(0.96); }
+  60%  { opacity:1; transform:scale(1.02); }
+  100% { opacity:1; transform:scale(1); }
+}
+.slot-box.is-result-correct,
+.slot-box.is-result-wrong {
+  animation:revealSlot 0.38s ease both;
+}
+
+/* Pitcher bar */
+.slot-pitcher-bar {
+  border-top:1px solid var(--border);
+  background:rgba(0,0,0,0.18);
+  padding:5px 7px;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:4px;
+}
+.pitcher-chip {
+  display:flex; flex-direction:column; gap:1px;
+  max-width:48%;
+}
+.pitcher-chip.home { align-items:flex-end; }
+.pitcher-chip-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:8px; font-weight:700;
+  letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--text-muted);
+}
+.pitcher-chip-name {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:12px; font-weight:600;
+  letter-spacing:0.03em;
+  color:var(--text-dim);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:80px;
+}
+.pitcher-chip-hand {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px; color:var(--text-muted);
+}
+.pitcher-vs {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px; color:var(--text-muted);
+}
+
+/* Game time */
+.slot-time-bar {
+  padding:3px 7px;
+  background:rgba(0,0,0,0.12);
+  border-top:1px solid var(--border);
+}
+.slot-time-text {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px; color:var(--text-muted);
+  letter-spacing:0.06em;
+  display:flex; align-items:center; gap:5px;
+}
+.live-dot {
+  width:5px; height:5px; border-radius:50%;
+  background:var(--live);
+  animation:livePulse 1.2s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes livePulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:0.5; transform:scale(0.7); }
+}
+.live-label {
+  color:var(--live);
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px; font-weight:700; letter-spacing:0.12em;
+}
+
+/* ─────────────────────────────────────────
+   LOCK BAR
+───────────────────────────────────────── */
+.lock-bar { padding:0 12px 12px; }
+
+.lock-btn {
+  width:100%; height:36px;
+  background:transparent;
+  border:1px solid var(--border2);
+  color:var(--text-muted);
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px; font-weight:700;
+  letter-spacing:0.2em; text-transform:uppercase;
+  transition:all 0.15s;
+  display:flex; align-items:center; justify-content:center; gap:9px;
+}
+.lock-btn:hover:not(:disabled):not(.is-locked) {
+  background:var(--accent-dim);
+  border-color:var(--accent);
+  color:var(--accent);
+}
+.lock-btn:disabled:not(.is-locked) {
+  opacity:0.28; cursor:not-allowed;
+}
+.lock-btn.is-locked {
+  border-color:var(--accent);
+  color:var(--accent);
+  background:rgba(200,168,75,0.05);
+  cursor:default;
+  pointer-events:none;
+}
+.lock-indicator {
+  width:7px; height:7px; border-radius:50%;
+  background:var(--accent);
+  animation:lockedPulse 2.5s ease-in-out infinite;
+}
+@keyframes lockedPulse {
+  0%,100% { opacity:1; }
+  50%      { opacity:0.35; }
+}
+
+/* Lock animation */
+@keyframes lockConfirm {
+  0%   { transform:scaleX(1); }
+  15%  { transform:scaleX(0.97); }
+  40%  { transform:scaleX(1.01); }
+  100% { transform:scaleX(1); }
+}
+.lock-btn.locking { animation:lockConfirm 0.4s ease; }
+
+/* ─────────────────────────────────────────
+   SERIES OUTCOME BAR
+───────────────────────────────────────── */
+.outcome-bar {
+  padding:8px 14px;
+  border-top:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.outcome-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px; font-weight:700;
+  letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--text-muted);
+}
+.outcome-value {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px; font-weight:800;
+  letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--text-dim);
+}
+.outcome-value.is-sweep { color:var(--accent); }
+.outcome-value.is-split { color:var(--blue); }
+
+/* ─────────────────────────────────────────
+   LOADING / ERROR / EMPTY
+───────────────────────────────────────── */
+.loading-state {
+  grid-column:1/-1;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  min-height:280px; gap:16px;
+}
+.loading-bar-wrap {
+  width:180px; height:2px;
+  background:var(--border); overflow:hidden; position:relative;
+}
+.loading-bar-wrap::after {
+  content:'';
+  position:absolute; left:-40%; width:40%; height:100%;
+  background:var(--accent);
+  animation:loadBar 1.1s ease-in-out infinite;
+}
+@keyframes loadBar {
+  0%   { left:-40%; }
+  100% { left:100%; }
+}
+.loading-label {
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px; color:var(--text-muted);
+  letter-spacing:0.12em; text-transform:uppercase;
+}
+
+.empty-state, .error-state {
+  grid-column:1/-1;
+  background:var(--surface);
+  border:1px solid var(--border);
+  padding:40px 32px;
+  text-align:center;
+}
+.state-title {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:14px; font-weight:700;
+  letter-spacing:0.14em; text-transform:uppercase;
+  color:var(--text-dim); margin-bottom:8px;
+}
+.state-body { font-size:12px; color:var(--text-muted); line-height:1.7; }
+
+/* ─────────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────────── */
+@media (max-width:680px) {
+  .series-grid { grid-template-columns:1fr; }
+  .stats-row { flex-wrap:wrap; }
+  .stat-block { min-width:calc(50% - 1px); }
+  header { padding:0 14px; }
+  main { padding:18px 14px 60px; }
+  .week-range { display:none; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-mark"></div>
+      <div class="logo-text"><span>Diamond</span></div>
+    </div>
+    <div class="header-meta">
+      <div class="week-range" id="weekRange">—</div>
+      <div class="accuracy-pill">
+        <span class="pill-label">Accuracy</span>
+        <span class="pill-value" id="headerAccuracy">—</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div class="stats-row">
+    <div class="stat-block">
+      <div class="s-label">Correct</div>
+      <div class="s-value" id="statCorrect">0</div>
+      <div class="s-sub">games called</div>
+    </div>
+    <div class="stat-block">
+      <div class="s-label">Wrong</div>
+      <div class="s-value" id="statWrong">0</div>
+      <div class="s-sub">games missed</div>
+    </div>
+    <div class="stat-block">
+      <div class="s-label">Pending</div>
+      <div class="s-value" id="statPending">0</div>
+      <div class="s-sub">to be played</div>
+    </div>
+    <div class="stat-block">
+      <div class="s-label">Win Rate</div>
+      <div class="s-value" id="statRate">—</div>
+      <div class="acc-bar"><div class="acc-fill" id="accFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <div class="section-title">Active Series This Week</div>
+    <div class="section-count" id="seriesCount">—</div>
+  </div>
+
+  <div class="series-grid" id="seriesGrid">
+    <div class="loading-state">
+      <div class="loading-bar-wrap"></div>
+      <div class="loading-label">Pulling MLB schedule...</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════ */
+
+const MLB_API     = 'https://statsapi.mlb.com/api/v1';
+const STORAGE_KEY = 'diamond_v1';
+
+const GAME_STATUS = Object.freeze({ PREVIEW:'P', LIVE:'L', FINAL:'F', POSTPONED:'D' });
+const PICK        = Object.freeze({ AWAY:'away', HOME:'home' });
+
+const TEAM_ABBR = Object.freeze({
+  'Arizona Diamondbacks':'ARI','Atlanta Braves':'ATL','Baltimore Orioles':'BAL',
+  'Boston Red Sox':'BOS','Chicago Cubs':'CHC','Chicago White Sox':'CWS',
+  'Cincinnati Reds':'CIN','Cleveland Guardians':'CLE','Colorado Rockies':'COL',
+  'Detroit Tigers':'DET','Houston Astros':'HOU','Kansas City Royals':'KC',
+  'Los Angeles Angels':'LAA','Los Angeles Dodgers':'LAD','Miami Marlins':'MIA',
+  'Milwaukee Brewers':'MIL','Minnesota Twins':'MIN','New York Mets':'NYM',
+  'New York Yankees':'NYY','Philadelphia Phillies':'PHI','Pittsburgh Pirates':'PIT',
+  'San Diego Padres':'SD','San Francisco Giants':'SF','Seattle Mariners':'SEA',
+  'St. Louis Cardinals':'STL','Tampa Bay Rays':'TB','Texas Rangers':'TEX',
+  'Toronto Blue Jays':'TOR','Washington Nationals':'WSH','Athletics':'OAK',
+  'Oakland Athletics':'OAK',
+});
+
+const TEAM_COLORS = Object.freeze({
+  108:[186,0,33],  109:[167,25,48], 110:[223,70,1],  111:[189,48,57],
+  112:[14,51,134], 113:[198,1,31],  114:[0,56,93],   115:[51,153,102],
+  116:[12,35,64],  117:[0,45,98],   118:[0,70,135],  119:[0,50,98],
+  120:[171,0,3],   121:[0,45,114],  133:[0,45,98],   134:[39,37,31],
+  135:[47,36,29],  136:[12,44,86],  137:[253,90,30], 138:[196,30,58],
+  139:[9,44,92],   140:[0,50,120],  141:[19,74,142], 142:[12,35,64],
+  143:[232,24,40], 144:[19,114,48], 145:[39,38,31],  146:[0,56,49],
+  147:[0,48,135],  158:[19,41,75],
+});
+
+/* ═══════════════════════════════════════════════
+   PURE HELPERS  (no side-effects, easily testable)
+═══════════════════════════════════════════════ */
+
+function toDateStr(d) {
+  return d.toISOString().split('T')[0];
+}
+
+function shiftDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function todayMidnight() {
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function weekRange(refDate) {
+  const day  = refDate.getDay();                    // 0=Sun
+  const diff = day === 0 ? -6 : 1 - day;
+  const mon  = shiftDays(refDate, diff);
+  return { start: mon, end: shiftDays(mon, 6) };
+}
+
+function teamAbbr(name) {
+  return TEAM_ABBR[name] || name.split(' ').pop().slice(0,3).toUpperCase();
+}
+
+function teamColor(teamId) {
+  return TEAM_COLORS[teamId] || [100,100,100];
+}
+
+function logoUrl(teamId) {
+  return `https://www.mlbstatic.com/team-logos/${teamId}.svg`;
+}
+
+function seriesKey(awayId, homeId) {
+  return `${awayId}_${homeId}`;
+}
+
+function gameKey(sk, idx) {
+  return `${sk}_g${idx}`;
+}
+
+function fmtShortDate(dateStr) {
+  return new Date(dateStr + 'T12:00:00')
+    .toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+}
+
+function fmtTime(isoStr) {
+  if (!isoStr) return '';
+  try {
+    return new Date(isoStr)
+      .toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZoneName:'short' });
+  } catch { return ''; }
+}
+
+function fmtWeekRange(start, end) {
+  const opts = { month:'short', day:'numeric' };
+  return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', opts)}`;
+}
+
+/* ═══════════════════════════════════════════════
+   DOMAIN MODEL
+═══════════════════════════════════════════════ */
+
+/**
+ * Wraps a raw MLB API game object with domain helpers.
+ * Accepts an injected "today" so it's fully testable.
+ */
+class Game {
+  constructor(raw, idx) {
+    this.idx          = idx;
+    this.gameId       = raw.gameId;
+    this.date         = raw.date;          // 'YYYY-MM-DD'
+    this.dateObj      = raw.dateObj;       // Date at noon
+    this.time         = raw.time;          // ISO game start
+    this.status       = raw.status;        // P/L/F/D
+    this.statusDetail = raw.statusDetail;
+    this.awayScore    = raw.awayScore;
+    this.homeScore    = raw.homeScore;
+    this.awayWin      = raw.awayWin;
+    this.homeWin      = raw.homeWin;
+    this.awayPitcher  = raw.awayPitcher;
+    this.homePitcher  = raw.homePitcher;
+  }
+
+  isFinal()     { return this.status === GAME_STATUS.FINAL; }
+  isLive()      { return this.status === GAME_STATUS.LIVE; }
+  isPostponed() { return this.status === GAME_STATUS.POSTPONED; }
+
+  isFuture(today) {
+    const gd = new Date(this.dateObj);
+    gd.setHours(0,0,0,0);
+    return gd > today;
+  }
+
+  isPickable(today) {
+    return !this.isFinal() && !this.isFuture(today) && !this.isPostponed();
+  }
+
+  evaluate(pick) {
+    if (!this.isFinal() || !pick) return null;
+    return (pick === PICK.AWAY && this.awayWin) || (pick === PICK.HOME && this.homeWin)
+      ? 'correct' : 'wrong';
+  }
+
+  scoreStr() {
+    if (this.awayScore == null || this.homeScore == null) return '';
+    return `${this.awayScore} – ${this.homeScore}`;
+  }
+}
+
+/**
+ * Wraps a group of Game objects for a series matchup.
+ */
+class Series {
+  constructor({ key, away, home, venue, games }) {
+    this.key   = key;
+    this.away  = away;
+    this.home  = home;
+    this.venue = venue;
+    this.games = games;   // Game[]
+  }
+
+  startDate() { return this.games[0]?.dateObj; }
+  endDate()   { return this.games[this.games.length - 1]?.dateObj; }
+
+  completedGames() { return this.games.filter(g => g.isFinal()); }
+
+  outcome() {
+    const done = this.completedGames();
+    if (!done.length) return null;
+
+    const awayW = done.filter(g => g.awayWin).length;
+    const homeW = done.filter(g => g.homeWin).length;
+    const total = this.games.length;
+    const isDone = done.length === total;
+
+    if (isDone) {
+      if (awayW === total) return { label:`${teamAbbr(this.away.name)} Sweep`, type:'sweep' };
+      if (homeW === total) return { label:`${teamAbbr(this.home.name)} Sweep`, type:'sweep' };
+      return { label:'Series Split', type:'split' };
+    }
+    return { label:`${teamAbbr(this.away.name)} ${awayW} – ${homeW} ${teamAbbr(this.home.name)}`, type:'live' };
+  }
+
+  pickableGames(today) {
+    return this.games.filter(g => g.isPickable(today));
+  }
+
+  dateRange() {
+    if (!this.games.length) return '';
+    const first = fmtShortDate(this.games[0].date);
+    const last  = fmtShortDate(this.games[this.games.length - 1].date);
+    return this.games.length > 1 ? `${first} – ${last}` : first;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   DATA LAYER  (seam: swap fetchSchedule/fetchStandings for mocks in dev)
+═══════════════════════════════════════════════ */
+
+const DataSource = {
+  async fetchSchedule(startDate, endDate) {
+    const url = `${MLB_API}/schedule?sportId=1&startDate=${startDate}&endDate=${endDate}`
+              + `&gameType=R&hydrate=probablePitcher,linescore,team,venue`;
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error(`MLB schedule API ${res.status}`);
+    const data = await res.json();
+    return data.dates || [];
+  },
+
+  async fetchStandings(season) {
+    const url  = `${MLB_API}/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason`;
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error(`MLB standings API ${res.status}`);
+    const data = await res.json();
+    const map  = {};
+    (data.records || []).forEach(div =>
+      (div.teamRecords || []).forEach(tr => {
+        map[tr.team.id] = `${tr.wins}-${tr.losses}`;
+      })
+    );
+    return map;
+  },
+};
+
+function parseDatesIntoSeries(dates) {
+  const map = {};
+
+  dates.forEach(dateObj => {
+    const dateStr = dateObj.date;
+    (dateObj.games || []).forEach(raw => {
+      const code = raw.status?.abstractGameCode;
+      // Accept Preview, Live, Final — skip Postponed/Cancelled/Unknown
+      if (code !== GAME_STATUS.PREVIEW &&
+          code !== GAME_STATUS.LIVE    &&
+          code !== GAME_STATUS.FINAL) return;
+
+      const away = raw.teams.away.team;
+      const home = raw.teams.home.team;
+      const sk   = seriesKey(away.id, home.id);
+
+      if (!map[sk]) {
+        map[sk] = { key:sk, away, home, venue:raw.venue?.name||'', games:[] };
+      }
+
+      map[sk].games.push(new Game({
+        gameId:       raw.gamePk,
+        date:         dateStr,
+        dateObj:      new Date(dateStr + 'T12:00:00'),
+        time:         raw.gameDate,
+        status:       code,
+        statusDetail: raw.status?.detailedState,
+        awayScore:    raw.teams.away.score,
+        homeScore:    raw.teams.home.score,
+        awayWin:      raw.teams.away.isWinner,
+        homeWin:      raw.teams.home.isWinner,
+        awayPitcher:  raw.teams.away.probablePitcher?.fullName,
+        homePitcher:  raw.teams.home.probablePitcher?.fullName,
+      }, 0)); // idx placeholder; set below
+    });
+  });
+
+  return Object.values(map)
+    .map(raw => {
+      raw.games.sort((a,b) => a.dateObj - b.dateObj);
+      raw.games.forEach((g,i) => { g.idx = i; });
+      return new Series(raw);
+    })
+    .sort((a,b) => a.startDate() - b.startDate());
+}
+
+/* ═══════════════════════════════════════════════
+   STATE & STORAGE
+═══════════════════════════════════════════════ */
+
+const AppState = {
+  picks:   {},    // { gameKey: 'away'|'home' }
+  locked:  {},    // { seriesKey: true }
+  series:  [],    // Series[]
+  records: {},    // { teamId: 'W-L' }
+
+  load() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      this.picks  = saved.picks  || {};
+      this.locked = saved.locked || {};
+    } catch {
+      this.picks  = {};
+      this.locked = {};
+    }
+  },
+
+  save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        picks:  this.picks,
+        locked: this.locked,
+      }));
+    } catch { /* storage full or blocked — silent */ }
+  },
+
+  setPick(sk, gk, side) {
+    if (this.locked[sk]) return;
+    if (this.picks[gk] === side) delete this.picks[gk];
+    else this.picks[gk] = side;
+    this.save();
+  },
+
+  lockSeries(sk) {
+    this.locked[sk] = true;
+    this.save();
+  },
+
+  getPick(gk) { return this.picks[gk] || null; },
+  isLocked(sk) { return !!this.locked[sk]; },
+};
+
+/* ═══════════════════════════════════════════════
+   RENDER HELPERS  (pure HTML string builders)
+═══════════════════════════════════════════════ */
+
+function renderTeamLogo(team, size = 52) {
+  const a = teamAbbr(team.name);
+  return `<img class="team-logo" src="${logoUrl(team.id)}"
+    width="${size}" height="${size}"
+    alt="${a}"
+    onerror="this.outerHTML='<div class=\\'team-logo-fallback\\'>${a}</div>'"
+  >`;
+}
+
+function renderPitcherBar(game) {
+  const away = game.awayPitcher || null;
+  const home = game.homePitcher || null;
+  if (!away && !home) return '';
+
+  const fmtName = n => n ? n.split(' ').pop() : '—';
+
+  return `
+    <div class="slot-pitcher-bar">
+      <div class="pitcher-chip away">
+        <span class="pitcher-chip-label">Away</span>
+        <span class="pitcher-chip-name">${fmtName(away)}</span>
+      </div>
+      <span class="pitcher-vs">vs</span>
+      <div class="pitcher-chip home">
+        <span class="pitcher-chip-label">Home</span>
+        <span class="pitcher-chip-name">${fmtName(home)}</span>
+      </div>
+    </div>`;
+}
+
+function renderTimeBar(game) {
+  if (game.isFinal()) return '';
+  if (game.isLive()) {
+    return `<div class="slot-time-bar">
+      <div class="slot-time-text">
+        <span class="live-dot"></span>
+        <span class="live-label">Live</span>
+        ${game.statusDetail ? `<span>${escHtml(game.statusDetail)}</span>` : ''}
+      </div>
+    </div>`;
+  }
+  const t = fmtTime(game.time);
+  if (!t) return '';
+  return `<div class="slot-time-bar"><div class="slot-time-text">${escHtml(t)}</div></div>`;
+}
+
+function renderResultOverlay(game, pick, series) {
+  const evaluation = game.evaluate(pick);
+  if (!evaluation) return '';
+
+  const winnerAbbr = game.awayWin
+    ? teamAbbr(series.away.name)
+    : teamAbbr(series.home.name);
+  const pickAbbr = pick === PICK.AWAY
+    ? teamAbbr(series.away.name)
+    : teamAbbr(series.home.name);
+  const score = game.scoreStr();
+
+  return `
+    <div class="slot-result-overlay">
+      <div class="overlay-winner">${escHtml(winnerAbbr)} Win</div>
+      ${score ? `<div class="overlay-score">${escHtml(score)}</div>` : ''}
+      <div class="overlay-pick-note">You picked ${escHtml(pickAbbr)}</div>
+    </div>`;
+}
+
+function renderGameSlot(game, series, today) {
+  const sk   = series.key;
+  const gk   = gameKey(sk, game.idx);
+  const pick = AppState.getPick(gk);
+  const locked = AppState.isLocked(sk);
+
+  const isFuture   = game.isFuture(today);
+  const isPickable = game.isPickable(today) && !locked;
+  const evaluation = game.evaluate(pick);
+
+  // Box CSS classes
+  let boxClass = 'slot-box';
+  if (isPickable)             boxClass += ' is-pickable';
+  if (isFuture)               boxClass += ' is-future';
+  if (evaluation === 'correct') boxClass += ' is-result-correct';
+  if (evaluation === 'wrong')   boxClass += ' is-result-wrong';
+  if (game.isFinal() && !pick) boxClass += ' is-result-nopick';
+
+  // Half buttons
+  const [ac, hc] = teamColor(series.away.id), homeC = teamColor(series.home.id);
+  const awayColor = teamColor(series.away.id);
+  const homeColor = teamColor(series.home.id);
+
+  const disabledAttr = isPickable ? '' : 'disabled';
+  const awayPicked   = pick === PICK.AWAY ? ' is-picked' : '';
+  const homePicked   = pick === PICK.HOME ? ' is-picked' : '';
+
+  const awayAbbr = teamAbbr(series.away.name);
+  const homeAbbr = teamAbbr(series.home.name);
+
+  const resultOverlay = (evaluation)
+    ? renderResultOverlay(game, pick, series)
+    : (game.isFinal() && !pick)
+      ? `<div class="slot-result-overlay">
+           <div class="overlay-winner" style="color:var(--text-muted)">No Pick</div>
+           <div class="overlay-pick-note">${game.awayWin ? awayAbbr : homeAbbr} Won</div>
+         </div>`
+      : '';
+
+  return `
+    <div class="game-slot">
+      <div class="${boxClass}" data-gk="${escAttr(gk)}" data-sk="${escAttr(sk)}">
+        <div class="slot-halves">
+          <button class="slot-half${awayPicked}"
+            data-side="${PICK.AWAY}" data-gk="${escAttr(gk)}" data-sk="${escAttr(sk)}"
+            style="--tc-r:${awayColor[0]};--tc-g:${awayColor[1]};--tc-b:${awayColor[2]}"
+            ${disabledAttr} aria-label="Pick ${awayAbbr}">
+            <img class="h-logo" src="${logoUrl(series.away.id)}"
+              width="28" height="28" alt="${awayAbbr}"
+              onerror="this.style.display='none'">
+            <span class="h-abbr">${awayAbbr}</span>
+          </button>
+          <button class="slot-half${homePicked}"
+            data-side="${PICK.HOME}" data-gk="${escAttr(gk)}" data-sk="${escAttr(sk)}"
+            style="--tc-r:${homeColor[0]};--tc-g:${homeColor[1]};--tc-b:${homeColor[2]}"
+            ${disabledAttr} aria-label="Pick ${homeAbbr}">
+            <img class="h-logo" src="${logoUrl(series.home.id)}"
+              width="28" height="28" alt="${homeAbbr}"
+              onerror="this.style.display='none'">
+            <span class="h-abbr">${homeAbbr}</span>
+          </button>
+        </div>
+        ${resultOverlay}
+        ${renderPitcherBar(game)}
+        ${renderTimeBar(game)}
+      </div>
+    </div>`;
+}
+
+/**
+ * THE CORE MECHANIC:
+ * Each day the user sees all games so far in the series grouped by day.
+ * Past days show results painted green/red.
+ * Today's games are open for picking (if not locked).
+ * Future days are dimmed placeholders.
+ */
+function renderPickRows(series, today) {
+  const sk     = series.key;
+  const locked = AppState.isLocked(sk);
+
+  // Group games by date string
+  const byDate = {};
+  series.games.forEach(g => {
+    if (!byDate[g.date]) byDate[g.date] = [];
+    byDate[g.date].push(g);
+  });
+
+  const sortedDates = Object.keys(byDate).sort();
+
+  return sortedDates.map((dateStr, rowIdx) => {
+    const games   = byDate[dateStr];
+    const rowDate = new Date(dateStr + 'T12:00:00');
+    rowDate.setHours(0,0,0,0);
+
+    const isToday  = rowDate.getTime() === today.getTime();
+    const isPast   = rowDate < today;
+    const isFuture = rowDate > today;
+
+    const dayLabel = new Date(dateStr + 'T12:00:00')
+      .toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+
+    let statusTag = '';
+    if (isFuture) {
+      statusTag = `<span class="row-status-tag tag-future">Upcoming</span>`;
+    } else if (locked) {
+      statusTag = `<span class="row-status-tag tag-locked">Locked</span>`;
+    } else if (isPast || games.every(g => g.isFinal())) {
+      statusTag = `<span class="row-status-tag tag-open">Played</span>`;
+    } else {
+      statusTag = `<span class="row-status-tag tag-open">Open</span>`;
+    }
+
+    const labelClass = isToday ? 'row-day-label is-today' : 'row-day-label';
+    const dayNum = `Game${games.length > 1 ? 's' : ''} ${rowIdx + 1}`;
+
+    const slotsHtml = games.map(g => renderGameSlot(g, series, today)).join('');
+
+    return `
+      <div class="pick-row" data-date="${escAttr(dateStr)}">
+        <div class="row-header">
+          <span class="${labelClass}">${dayNum} · ${escHtml(dayLabel)}</span>
+          <div class="row-divider"></div>
+          ${statusTag}
+        </div>
+        <div class="row-slots">${slotsHtml}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderLockBar(series, today) {
+  const sk     = series.key;
+  const locked = AppState.isLocked(sk);
+
+  if (locked) {
+    return `<div class="lock-bar">
+      <button class="lock-btn is-locked" data-sk="${escAttr(sk)}">
+        <span class="lock-indicator"></span>
+        Picks Locked In
+      </button>
+    </div>`;
+  }
+
+  const pickable = series.pickableGames(today);
+  const allPicked = pickable.length > 0 &&
+    pickable.every(g => AppState.getPick(gameKey(sk, g.idx)));
+
+  return `<div class="lock-bar">
+    <button class="lock-btn" data-sk="${escAttr(sk)}"
+      ${(!allPicked) ? 'disabled' : ''}
+      data-action="lock">
+      Lock In Picks
+    </button>
+  </div>`;
+}
+
+function renderOutcomeBar(series) {
+  const outcome = series.outcome();
+  if (!outcome) return '';
+
+  const cls = outcome.type === 'sweep' ? ' is-sweep'
+            : outcome.type === 'split' ? ' is-split' : '';
+
+  return `<div class="outcome-bar">
+    <span class="outcome-label">Series</span>
+    <span class="outcome-value${cls}">${escHtml(outcome.label)}</span>
+  </div>`;
+}
+
+function renderSeriesCard(series, today) {
+  const sk      = series.key;
+  const locked  = AppState.isLocked(sk);
+  const awayRec = AppState.records[series.away.id] || '—';
+  const homeRec = AppState.records[series.home.id] || '—';
+
+  return `
+    <div class="series-card${locked ? ' is-locked' : ''}" data-sk="${escAttr(sk)}">
+
+      <div class="card-topbar">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="series-badge">${series.games.length}-Game Series</span>
+          <span class="series-venue">${escHtml(series.venue)}</span>
+        </div>
+        <span class="series-daterange">${escHtml(series.dateRange())}</span>
+      </div>
+
+      <div class="teams-row">
+        <div class="team-side away">
+          ${renderTeamLogo(series.away)}
+          <div class="team-name">${escHtml(teamAbbr(series.away.name))}</div>
+          <div class="team-record">${escHtml(awayRec)}</div>
+        </div>
+        <div class="at-divider">at</div>
+        <div class="team-side home">
+          ${renderTeamLogo(series.home)}
+          <div class="team-name">${escHtml(teamAbbr(series.home.name))}</div>
+          <div class="team-record">${escHtml(homeRec)}</div>
+        </div>
+      </div>
+
+      <div class="pick-rows">
+        ${renderPickRows(series, today)}
+      </div>
+
+      ${renderLockBar(series, today)}
+      ${renderOutcomeBar(series)}
+
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════
+   SECURITY HELPERS
+═══════════════════════════════════════════════ */
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+function escAttr(str) { return escHtml(str); }
+
+/* ═══════════════════════════════════════════════
+   STATS
+═══════════════════════════════════════════════ */
+
+function computeStats(series) {
+  let correct = 0, wrong = 0, pending = 0;
+
+  series.forEach(s => {
+    s.games.forEach((g, i) => {
+      const gk   = gameKey(s.key, g.idx);
+      const pick = AppState.getPick(gk);
+      if (g.isFinal()) {
+        const ev = g.evaluate(pick);
+        if (ev === 'correct') correct++;
+        else wrong++;
+      } else if (!g.isPostponed()) {
+        pending++;
+      }
+    });
+  });
+
+  return { correct, wrong, pending };
+}
+
+function updateStatsUI(series) {
+  const { correct, wrong, pending } = computeStats(series);
+  const total = correct + wrong;
+  const pct   = total > 0 ? Math.round((correct / total) * 100) : null;
+  const pctStr = pct !== null ? `${pct}%` : '—';
+
+  document.getElementById('statCorrect').textContent  = correct;
+  document.getElementById('statWrong').textContent    = wrong;
+  document.getElementById('statPending').textContent  = pending;
+  document.getElementById('statRate').textContent     = pctStr;
+  document.getElementById('accFill').style.width      = pct != null ? `${pct}%` : '0%';
+  document.getElementById('headerAccuracy').textContent = pctStr;
+}
+
+/* ═══════════════════════════════════════════════
+   GRID RENDER
+═══════════════════════════════════════════════ */
+
+function renderGrid() {
+  const today  = todayMidnight();
+  const series = AppState.series;
+  const grid   = document.getElementById('seriesGrid');
+
+  if (!series.length) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="state-title">No Active Series This Week</div>
+      <div class="state-body">Check back during the regular season, or on a day when games are scheduled.</div>
+    </div>`;
+    return;
+  }
+
+  document.getElementById('seriesCount').textContent = `${series.length} series`;
+  grid.innerHTML = series.map(s => renderSeriesCard(s, today)).join('');
+
+  updateStatsUI(series);
+}
+
+/** Re-renders a single card in place without touching the rest of the grid. */
+function rerenderCard(sk) {
+  const series = AppState.series.find(s => s.key === sk);
+  if (!series) return;
+
+  const today   = todayMidnight();
+  const existing = document.querySelector(`.series-card[data-sk="${sk}"]`);
+  if (!existing) return;
+
+  // Create a temp container, swap innerHTML
+  const tmp = document.createElement('div');
+  tmp.innerHTML = renderSeriesCard(series, today);
+  existing.replaceWith(tmp.firstElementChild);
+
+  updateStatsUI(AppState.series);
+  // Re-attach handlers for the new card only
+  attachHandlers(document.querySelector(`.series-card[data-sk="${sk}"]`));
+}
+
+/* ═══════════════════════════════════════════════
+   EVENT HANDLERS  (attached once per card, no leaks)
+═══════════════════════════════════════════════ */
+
+function attachHandlers(container) {
+  if (!container) return;
+
+  // Pick buttons (event delegation within card)
+  container.querySelectorAll('.slot-half:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', onPickClick, { once:false });
+  });
+
+  // Lock button
+  const lockBtn = container.querySelector('.lock-btn[data-action="lock"]');
+  if (lockBtn) {
+    lockBtn.addEventListener('click', onLockClick, { once:true });
+  }
+}
+
+function onPickClick(e) {
+  const btn  = e.currentTarget;
+  const gk   = btn.dataset.gk;
+  const sk   = btn.dataset.sk;
+  const side = btn.dataset.side;
+
+  if (!gk || !sk || !side) return;
+  if (AppState.isLocked(sk)) return;
+
+  AppState.setPick(sk, gk, side);
+
+  // Flash animation on the tapped half
+  btn.classList.add('flash-pick');
+  btn.addEventListener('animationend', () => btn.classList.remove('flash-pick'), { once:true });
+
+  rerenderCard(sk);
+}
+
+function onLockClick(e) {
+  const sk  = e.currentTarget.dataset.sk;
+  if (!sk) return;
+
+  const btn = e.currentTarget;
+  btn.classList.add('locking');
+  btn.addEventListener('animationend', () => {
+    AppState.lockSeries(sk);
+    rerenderCard(sk);
+  }, { once:true });
+}
+
+function attachAllHandlers() {
+  document.querySelectorAll('.series-card').forEach(card => attachHandlers(card));
+}
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+
+async function init() {
+  AppState.load();
+
+  const now   = new Date();
+  const range = weekRange(now);
+
+  // Update header week range immediately
+  document.getElementById('weekRange').textContent =
+    `Week of ${fmtWeekRange(range.start, range.end)}`;
+
+  try {
+    const [dates, records] = await Promise.all([
+      DataSource.fetchSchedule(toDateStr(range.start), toDateStr(range.end)),
+      DataSource.fetchStandings(now.getFullYear()),
+    ]);
+
+    AppState.records = records;
+    AppState.series  = parseDatesIntoSeries(dates);
+
+    renderGrid();
+    attachAllHandlers();
+
+  } catch (err) {
+    console.error('[MLB Predictor]', err);
+    document.getElementById('seriesGrid').innerHTML = `
+      <div class="error-state">
+        <div class="state-title">Could Not Load Schedule</div>
+        <div class="state-body">
+          The MLB API may be unavailable or rate-limited.<br>
+          Please refresh to try again.<br>
+          <small style="color:var(--text-muted);margin-top:6px;display:block">${escHtml(err.message)}</small>
+        </div>
+      </div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   MIDNIGHT AUTO-REFRESH
+   Uses visibilitychange so backgrounded tabs refresh
+   correctly when the user returns after midnight.
+═══════════════════════════════════════════════ */
+
+let _lastInitDate = toDateStr(new Date());
+
+function checkDayRollover() {
+  const today = toDateStr(new Date());
+  if (today !== _lastInitDate) {
+    _lastInitDate = today;
+    init();
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') checkDayRollover();
+});
+
+// Also poll every 5 min as fallback
+setInterval(checkDayRollover, 5 * 60 * 1000);
+
+// Kick off
+init();
+</script>
+</body>
+</html>
