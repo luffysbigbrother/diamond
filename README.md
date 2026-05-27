@@ -58,9 +58,3 @@ To run locally, serve the file from any static server — opening it directly as
 python3 -m http.server 8000
 # Then open http://localhost:8000
 ```
-
----
-
-## Part of Dugout
-
-Diamond is one piece of the Dugout sports intelligence system — a personal suite of tools built around how baseball is actually watched, tracked, and argued about.
