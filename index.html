@@ -491,6 +491,14 @@ main{
   letter-spacing:0.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;
 }
 .state-body{font-size:12px;color:var(--text-muted);line-height:1.7;}
+.retry-btn{
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;
+  letter-spacing:0.18em;text-transform:uppercase;
+  background:transparent;border:1px solid var(--border2);
+  color:var(--text-dim);padding:8px 20px;cursor:pointer;
+  transition:border-color 0.15s,color 0.15s;margin-top:12px;display:inline-block;
+}
+.retry-btn:hover{border-color:var(--accent);color:var(--accent);}
 
 /* ─────────────────────────────────────────
    RESPONSIVE
@@ -569,7 +577,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.27.1';
+const APP_VERSION  = '2026.05.27.3';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -580,7 +588,7 @@ function bustCache() {
       localStorage.setItem(VERSION_KEY, APP_VERSION);
       if (stored !== null) {
         // Only reload if there was a previous version (not first launch)
-        window.location.reload(true);
+        window.location.reload();
       }
     }
   } catch {
@@ -801,14 +809,15 @@ function scoreGame(game, dayPicks, gameIdx){
   const breakdown=[];
   let total=0;
 
-  // Find the earliest day this game was picked
-  // dayRow is 1-based; game at idx=0 is first available on Day 1, etc.
-  // A game at idx=N becomes available starting on dayRow N+1
-  const firstAvailableDay = gameIdx + 1;
-
-  // Collect all picks made for this game across days
+  // Collect all picks made for this game across days.
   // dayPicks is an object: { dayRow: side }
-  const dayRows = Object.keys(dayPicks).map(Number).sort((a,b)=>a-b);
+  // Guard: a pick on a day before the game was available is invalid.
+  // Game at idx=N first appears on dayRow N+1.
+  const firstAvailableDay = gameIdx + 1;
+  const dayRows = Object.keys(dayPicks)
+    .map(Number)
+    .filter(d => d >= firstAvailableDay)   // discard picks before game existed
+    .sort((a,b) => a-b);
   if(!dayRows.length)return{pts:0,breakdown:[]};
 
   const firstDay = dayRows[0];
@@ -949,22 +958,38 @@ function computeSeriesScore(series, state){
    DATA LAYER — injectable seam for testing
 ═══════════════════════════════════════════ */
 const DataSource = {
-  async fetchSchedule(startDate, endDate){
-    const url=`${MLB_API}/schedule?sportId=1&startDate=${startDate}&endDate=${endDate}`
-             +`&gameType=R&hydrate=probablePitcher,linescore,team,venue`;
-    const res=await fetch(url);
-    if(!res.ok)throw new Error(`MLB schedule API ${res.status}`);
-    const data=await res.json();
-    return data.dates||[];
+  // Wraps fetch with a 10-second timeout.
+  // If the MLB API hangs silently, we bail instead of spinning forever.
+  async _fetch(url, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(`MLB API error ${res.status}`);
+      return await res.json();
+    } catch(err) {
+      if (err.name === 'AbortError') throw new Error('MLB API timed out — tap Retry');
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   },
-  async fetchStandings(season){
-    const url=`${MLB_API}/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason`;
-    const res=await fetch(url);
-    if(!res.ok)throw new Error(`MLB standings API ${res.status}`);
-    const data=await res.json();
-    const map={};
-    (data.records||[]).forEach(div=>
-      (div.teamRecords||[]).forEach(tr=>{map[tr.team.id]=`${tr.wins}-${tr.losses}`;})
+
+  async fetchSchedule(startDate, endDate) {
+    const url = `${MLB_API}/schedule?sportId=1&startDate=${startDate}&endDate=${endDate}`
+              + `&gameType=R&hydrate=probablePitcher,linescore,team,venue`;
+    const data = await this._fetch(url);
+    return data.dates || [];
+  },
+
+  async fetchStandings(season) {
+    const url  = `${MLB_API}/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason`;
+    const data = await this._fetch(url);
+    const map  = {};
+    (data.records || []).forEach(div =>
+      (div.teamRecords || []).forEach(tr => {
+        map[tr.team.id] = `${tr.wins}-${tr.losses}`;
+      })
     );
     return map;
   },
@@ -1039,11 +1064,16 @@ function parseDatesIntoSeries(dates, displayStart, displayEnd){
 /* ═══════════════════════════════════════════
    APP STATE & STORAGE
 ═══════════════════════════════════════════ */
+// ApiCache holds ephemeral API data — separate from durable user state.
+// Records and series come from the network and are never persisted to localStorage.
+const ApiCache={
+  records:{},   // { teamId: 'W-L' }
+  series:[],    // Series[]
+};
+
 const AppState={
   picks:{},    // { pickKey: 'away'|'home' }
   locked:{},   // { `${sk}_d${dayRow}`: true }
-  series:[],
-  records:{},
 
   load(){
     try{
@@ -1115,15 +1145,12 @@ function renderTimeBar(game){
 
 /**
  * Render a single game slot within a day-row.
+ * @param {SlotContext} ctx — { game, series, dayRow, today, isPrefilled, rowLocked }
  *
- * game        — Game object
- * series      — Series object
- * dayRow      — which row this slot appears in (1-based)
- * today       — Date at midnight
- * isPrefilled — true when this slot shows a past result (game already played before this row's date)
- * rowLocked   — whether this row is locked
+ * SlotContext consolidates the 6 parameters into one named object,
+ * making call sites readable and preventing argument-order mistakes.
  */
-function renderGameSlot(game, series, dayRow, today, isPrefilled, rowLocked){
+function renderGameSlot({ game, series, dayRow, today, isPrefilled, rowLocked }){
   const sk = series.key;
   const pick = AppState.getPick(sk, game.idx, dayRow);
   const isPickable = !isPrefilled && !rowLocked && game.isPickable(today) && !game.isFuture(today);
@@ -1246,9 +1273,9 @@ function renderGameSlot(game, series, dayRow, today, isPrefilled, rowLocked){
  * On Day 3:
  *   [Game 1: pre-filled] [Game 2: pre-filled] [Game 3: open] [Game 4: open]
  */
-function renderPickRows(series, today){
+function renderPickRows(series, today, dates){
   const sk = series.key;
-  const dates = series.seriesDates();
+  // dates is passed in from renderSeriesCard to avoid recomputing seriesDates() per row
 
   return dates.map((dateStr, rowIdx) => {
     const dayRow   = rowIdx + 1; // 1-based
@@ -1329,20 +1356,11 @@ function renderPickRows(series, today){
     const dayLabel   = new Date(dateStr+'T12:00:00')
       .toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 
-    // Build all slot columns: prev (pre-filled) | row games (open) | next (future/dim)
-    const allSlots = [
-      ...prevGames.map(g => renderGameSlot(g,series,dayRow,today,true,rowLocked)),
-      ...rowGames.map(g  => renderGameSlot(g,series,dayRow,today,false,rowLocked)),
-      ...nextGames.map(g => renderGameSlot(g,series,dayRow,today,false,rowLocked)),
-    ];
-
-    // Sort slots back into game order (by g.idx)
-    // We need to render in game index order always
+    // Render all slots in stable game-index order.
+    // prevGames = pre-filled (result shown), rowGames = open picks, nextGames = future/dim.
     const sortedSlots = series.games.map(g => {
-      const isPre  = prevGames.includes(g);
-      const isRow  = rowGames.includes(g);
-      const isNext = nextGames.includes(g);
-      return renderGameSlot(g, series, dayRow, today, isPre, rowLocked);
+      const isPre = prevGames.includes(g);
+      return renderGameSlot({ game:g, series, dayRow, today, isPrefilled:isPre, rowLocked });
     });
 
     return`<div class="pick-row" data-sk="${escHtml(sk)}" data-dayrow="${dayRow}">
@@ -1358,8 +1376,8 @@ function renderPickRows(series, today){
   }).join('');
 }
 
-function renderScoreBreakdown(series){
-  const {total, allBreakdown} = computeSeriesScore(series, AppState);
+// Accepts precomputed score to avoid triple-calling computeSeriesScore per render.
+function renderScoreBreakdown(allBreakdown){
   if(!allBreakdown.length)return'';
   return`<div class="score-breakdown">
     ${allBreakdown.map(b=>`
@@ -1370,10 +1388,7 @@ function renderScoreBreakdown(series){
   </div>`;
 }
 
-function renderCardFooter(series){
-  const outcome = series.outcome();
-  const {total} = computeSeriesScore(series, AppState);
-
+function renderCardFooter(outcome, total){
   const outcomeHtml = outcome
     ? `<span class="outcome-label">Series</span>
        <span class="outcome-value${outcome.type==='sweep'?' is-sweep':outcome.type==='split'?' is-split':''}">${escHtml(outcome.label)}</span>`
@@ -1388,12 +1403,14 @@ function renderCardFooter(series){
 
 function renderSeriesCard(series, today){
   const sk      = series.key;
-  const awayRec = AppState.records[series.away.id]||'—';
-  const homeRec = AppState.records[series.home.id]||'—';
-  const {total} = computeSeriesScore(series, AppState);
+  const awayRec = ApiCache.records[series.away.id]||'—';
+  const homeRec = ApiCache.records[series.home.id]||'—';
 
-  // Is any row locked?
-  const anyLocked = series.seriesDates().some((_,i)=>AppState.isRowLocked(sk,i+1));
+  // Compute once — passed to all sub-renderers that need it
+  const score     = computeSeriesScore(series, AppState);
+  const outcome   = series.outcome();
+  const dates     = series.seriesDates();  // memoize for this render pass
+  const anyLocked = dates.some((_,i)=>AppState.isRowLocked(sk,i+1));
 
   return`<div class="series-card${anyLocked?' is-locked':''}" data-sk="${escHtml(sk)}">
 
@@ -1403,9 +1420,9 @@ function renderSeriesCard(series, today){
         <span class="series-venue">${escHtml(series.venue)}</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        ${total!==0?`<div class="card-score-badge">
+        ${score.total!==0?`<div class="card-score-badge">
           <span class="badge-label">Pts</span>
-          <span class="badge-val">${total>0?'+':''}${total}</span>
+          <span class="badge-val">${score.total>0?'+':''}${score.total}</span>
         </div>`:''}
         <span class="series-daterange">${escHtml(series.dateRange())}</span>
       </div>
@@ -1426,11 +1443,11 @@ function renderSeriesCard(series, today){
     </div>
 
     <div class="pick-rows">
-      ${renderPickRows(series, today)}
+      ${renderPickRows(series, today, dates)}
     </div>
 
-    ${renderScoreBreakdown(series)}
-    ${renderCardFooter(series)}
+    ${renderScoreBreakdown(score.allBreakdown)}
+    ${renderCardFooter(outcome, score.total)}
 
   </div>`;
 }
@@ -1438,25 +1455,27 @@ function renderSeriesCard(series, today){
 /* ═══════════════════════════════════════════
    GLOBAL STATS
 ═══════════════════════════════════════════ */
-function updateStatsUI(){
-  const series = AppState.series;
+
+/**
+ * Pure function — no DOM, fully testable.
+ * Returns { correct, wrong, pending, totalScore, pct }
+ */
+function computeWeekStats(series){
   let correct=0, wrong=0, pending=0, totalScore=0;
 
   series.forEach(s=>{
     const {total} = computeSeriesScore(s, AppState);
     totalScore += total;
+    const dates = s.seriesDates();
     s.games.forEach(g=>{
       if(g.isFinal()){
-        // Check if any day-row pick was correct
-        const dates = s.seriesDates();
-        let hadCorrect=false,hadPick=false;
+        let hadCorrect=false, hadPick=false;
         dates.forEach((_,i)=>{
           const p=AppState.getPick(s.key,g.idx,i+1);
-          if(p){hadPick=true;if(g.evaluate(p)==='correct')hadCorrect=true;}
+          if(p){ hadPick=true; if(g.evaluate(p)==='correct') hadCorrect=true; }
         });
-        if(hadCorrect)correct++;
-        else if(hadPick)wrong++;
-        else wrong++;
+        if(hadCorrect) correct++;
+        else wrong++;  // counts both wrong-pick and no-pick as wrong
       } else if(!g.isPostponed()){
         pending++;
       }
@@ -1465,7 +1484,12 @@ function updateStatsUI(){
 
   const total=correct+wrong;
   const pct=total>0?Math.round((correct/total)*100):null;
-  const pctStr=pct!=null?`${pct}%`:'—';
+  return{ correct, wrong, pending, totalScore, pct };
+}
+
+function updateStatsUI(){
+  const { correct, wrong, pending, totalScore, pct } = computeWeekStats(ApiCache.series);
+  const pctStr = pct!=null?`${pct}%`:'—';
 
   document.getElementById('statScore').textContent=totalScore;
   document.getElementById('statCorrect').textContent=correct;
@@ -1480,7 +1504,7 @@ function updateStatsUI(){
 ═══════════════════════════════════════════ */
 function renderGrid(){
   const today  = todayMidnight();
-  const series = AppState.series;
+  const series = ApiCache.series;
   const grid   = document.getElementById('seriesGrid');
 
   if(!series.length){
@@ -1497,7 +1521,7 @@ function renderGrid(){
 }
 
 function rerenderCard(sk){
-  const series=AppState.series.find(s=>s.key===sk);
+  const series=ApiCache.series.find(s=>s.key===sk);
   if(!series)return;
   const today=todayMidnight();
   const existing=document.querySelector(`.series-card[data-sk="${sk}"]`);
@@ -1585,19 +1609,19 @@ async function init(){
       DataSource.fetchStandings(now.getFullYear()),
     ]);
 
-    AppState.records = records;
-    AppState.series  = parseDatesIntoSeries(dates, range.start, range.end);
+    ApiCache.records = records;
+    ApiCache.series  = parseDatesIntoSeries(dates, range.start, range.end);
 
     renderGrid();
     attachAllHandlers();
-  }catch(err){
-    console.error('[Diamond]',err);
-    document.getElementById('seriesGrid').innerHTML=`
+  } catch(err) {
+    console.error('[Diamond]', err);
+    document.getElementById('seriesGrid').innerHTML = `
       <div class="error-state">
         <div class="state-title">Could Not Load Schedule</div>
         <div class="state-body">
-          The MLB API may be unavailable. Please refresh to try again.<br>
-          <small style="color:var(--text-muted);margin-top:6px;display:block">${escHtml(err.message)}</small>
+          ${escHtml(err.message)}<br><br>
+          <button class="retry-btn" onclick="retryInit()">Retry</button>
         </div>
       </div>`;
   }
@@ -1618,6 +1642,15 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible')checkRollover();
 });
 setInterval(checkRollover, 5*60*1000);
+
+function retryInit() {
+  document.getElementById('seriesGrid').innerHTML = `
+    <div class="loading-state">
+      <div class="loading-bar-wrap"></div>
+      <div class="loading-label">Retrying...</div>
+    </div>`;
+  init();
+}
 
 init();
 
@@ -1711,5 +1744,53 @@ init();
 
   // ── 14. pickKey
   assert('pickKey format', pickKey('141_110',0,1)==='141_110_g0_d1');
+
+  // ── 15. scoreSeriesOutcome — sweep called correctly on Day 1
+  function mkSeries4(awayWins){
+    // awayWins: array of 4 booleans [g1,g2,g3,g4]
+    const games = awayWins.map((aw,i)=>mkGame(i,aw));
+    return new Series({
+      key:'test_series',
+      away:{id:141,name:'Toronto Blue Jays'},
+      home:{id:110,name:'Baltimore Orioles'},
+      venue:'Camden Yards',
+      games,
+      totalGames:4,
+    });
+  }
+
+  // BAL sweeps (all home wins), Day 1 picks all HOME correctly
+  const sweepSeries = mkSeries4([false,false,false,false]);
+  const sweepPicks = { 0:{1:PICK.HOME}, 1:{1:PICK.HOME}, 2:{1:PICK.HOME}, 3:{1:PICK.HOME} };
+  const {pts:swPts} = scoreSeriesOutcome(sweepSeries, sweepPicks);
+  assert('Sweep called correctly = +40pts', swPts===OUTCOME_BONUS.SWEEP_CORRECT);
+
+  // BAL sweeps but user picked TOR sweep — wrong team
+  const sweepWrongPicks = { 0:{1:PICK.AWAY}, 1:{1:PICK.AWAY}, 2:{1:PICK.AWAY}, 3:{1:PICK.AWAY} };
+  const {pts:swWrongPts} = scoreSeriesOutcome(sweepSeries, sweepWrongPicks);
+  assert('Sweep wrong team = 0pts', swWrongPts===0);
+
+  // Split series (2-2), user called split on Day 1
+  const splitSeries = mkSeries4([true,false,true,false]);
+  const splitPicks = { 0:{1:PICK.AWAY}, 1:{1:PICK.HOME}, 2:{1:PICK.AWAY}, 3:{1:PICK.HOME} };
+  const {pts:splitPts} = scoreSeriesOutcome(splitSeries, splitPicks);
+  assert('Split called correctly = +30pts', splitPts===OUTCOME_BONUS.SPLIT_CORRECT);
+
+  // 3-1 series (BAL wins 3), user called 3-1 BAL correctly
+  const win31Series = mkSeries4([false,false,true,false]);
+  const win31Picks = { 0:{1:PICK.HOME}, 1:{1:PICK.HOME}, 2:{1:PICK.AWAY}, 3:{1:PICK.HOME} };
+  const {pts:w31Pts} = scoreSeriesOutcome(win31Series, win31Picks);
+  assert('3-1 right team = +25pts', w31Pts===OUTCOME_BONUS.WIN_3_1_CORRECT_TEAM);
+
+  // 3-1 series (BAL wins 3), user called 3-1 but picked TOR — wrong team
+  const win31WrongPicks = { 0:{1:PICK.AWAY}, 1:{1:PICK.AWAY}, 2:{1:PICK.HOME}, 3:{1:PICK.AWAY} };
+  const {pts:w31WPts} = scoreSeriesOutcome(win31Series, win31WrongPicks);
+  assert('3-1 wrong team = +10pts', w31WPts===OUTCOME_BONUS.WIN_3_1_WRONG_TEAM);
+
+  // ── 16. computeWeekStats — pure function returns correct shape
+  const emptyStats = computeWeekStats([]);
+  assert('computeWeekStats empty = zero correct', emptyStats.correct===0);
+  assert('computeWeekStats empty = zero pending', emptyStats.pending===0);
+  assert('computeWeekStats empty = null pct', emptyStats.pct===null);
 
   // ─
