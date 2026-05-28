@@ -1,0 +1,2367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Diamond</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800;900&family=Barlow:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────
+   DESIGN TOKENS
+───────────────────────────────────────── */
+:root {
+  --bg:         #0a0c0f;
+  --surface:    #111318;
+  --surface2:   #181c23;
+  --surface3:   #1e2330;
+  --border:     #1f2530;
+  --border2:    #2a3140;
+  --text:       #e8edf5;
+  --text-dim:   #6b7a94;
+  --text-muted: #3d4a5c;
+  --accent:     #c8a84b;
+  --accent-dim: rgba(200,168,75,0.12);
+  --green:      #22c55e;
+  --green-dim:  rgba(34,197,94,0.14);
+  --green-bg:   rgba(34,197,94,0.06);
+  --red:        #ef4444;
+  --red-dim:    rgba(239,68,68,0.14);
+  --red-bg:     rgba(239,68,68,0.06);
+  --blue:       #3b82f6;
+  --live:       #ff4d4d;
+  --gold-score: #f0c040;
+}
+
+/* ─────────────────────────────────────────
+   RESET
+───────────────────────────────────────── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+img{display:block;}
+
+/* ─────────────────────────────────────────
+   BASE
+───────────────────────────────────────── */
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Barlow',sans-serif;
+  min-height:100vh;overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.011) 2px,rgba(255,255,255,0.011) 4px);
+  pointer-events:none;z-index:0;
+}
+
+/* ─────────────────────────────────────────
+   HEADER
+───────────────────────────────────────── */
+header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(10,12,15,0.96);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;
+}
+.header-inner{
+  max-width:1200px;margin:0 auto;
+  height:56px;display:flex;align-items:center;justify-content:space-between;
+}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-mark{
+  width:26px;height:26px;background:var(--accent);
+  transform:rotate(45deg);flex-shrink:0;position:relative;
+}
+.logo-mark::after{content:'';position:absolute;inset:7px;background:var(--bg);}
+.logo-text{
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:800;font-size:17px;letter-spacing:0.09em;text-transform:uppercase;
+}
+.logo-text span{color:var(--accent);}
+.header-meta{display:flex;align-items:center;gap:16px;}
+.week-range{
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:var(--text-dim);letter-spacing:0.08em;text-transform:uppercase;
+}
+.accuracy-pill{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface);border:1px solid var(--border);padding:5px 12px;
+}
+.accuracy-pill .pill-label{
+  font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);
+}
+.accuracy-pill .pill-value{
+  font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--accent);
+}
+
+/* ─────────────────────────────────────────
+   MAIN
+───────────────────────────────────────── */
+main{
+  max-width:1200px;margin:0 auto;
+  padding:28px 24px 80px;position:relative;z-index:1;
+}
+
+/* ─────────────────────────────────────────
+   STATS ROW
+───────────────────────────────────────── */
+.stats-row{display:flex;gap:1px;margin-bottom:28px;}
+.stat-block{
+  flex:1;background:var(--surface);border:1px solid var(--border);
+  padding:12px 16px;display:flex;flex-direction:column;gap:3px;
+}
+.stat-block .s-label{
+  font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);
+}
+.stat-block .s-value{
+  font-family:'Share Tech Mono',monospace;font-size:24px;line-height:1;color:var(--text);
+}
+.stat-block .s-value.gold{color:var(--gold-score);}
+.stat-block .s-sub{font-size:10px;color:var(--text-muted);font-weight:300;}
+.acc-bar{height:2px;background:var(--border);margin-top:6px;overflow:hidden;}
+.acc-fill{height:100%;background:var(--green);transition:width 0.7s ease;}
+
+/* ─────────────────────────────────────────
+   SECTION HEADER
+───────────────────────────────────────── */
+.section-header{
+  display:flex;align-items:baseline;gap:14px;
+  margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--border);
+}
+.section-title{
+  font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;
+  letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim);
+}
+.section-count{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-muted);}
+
+/* ─────────────────────────────────────────
+   SERIES GRID
+───────────────────────────────────────── */
+.series-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(380px,1fr));
+  gap:14px;
+}
+
+/* ─────────────────────────────────────────
+   SERIES CARD
+───────────────────────────────────────── */
+.series-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-top:2px solid var(--border2);overflow:hidden;
+  transition:border-color 0.2s;
+  animation:fadeUp 0.35s ease both;
+}
+.series-card:hover{border-color:var(--border2);}
+.series-card.is-locked{border-top-color:var(--accent);}
+
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(10px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.series-card:nth-child(1){animation-delay:0.04s;}
+.series-card:nth-child(2){animation-delay:0.08s;}
+.series-card:nth-child(3){animation-delay:0.12s;}
+.series-card:nth-child(4){animation-delay:0.16s;}
+.series-card:nth-child(5){animation-delay:0.20s;}
+.series-card:nth-child(n+6){animation-delay:0.24s;}
+
+/* Card top bar */
+.card-topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 14px 0;
+}
+.series-badge{
+  font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);
+  border:1px solid var(--border2);padding:2px 7px;
+}
+.series-venue{
+  font-size:10px;color:var(--text-muted);font-weight:300;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;
+}
+.series-daterange{
+  font-family:'Share Tech Mono',monospace;font-size:10px;
+  color:var(--text-muted);letter-spacing:0.05em;
+}
+
+/* Score badge on card */
+.card-score-badge{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(240,192,64,0.08);
+  border:1px solid rgba(240,192,64,0.2);
+  padding:2px 8px;
+}
+.card-score-badge .badge-label{
+  font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);
+}
+.card-score-badge .badge-val{
+  font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--gold-score);
+}
+
+/* Teams row */
+.teams-row{
+  display:grid;grid-template-columns:1fr auto 1fr;
+  align-items:center;padding:12px 16px 10px;gap:8px;
+}
+.team-side{display:flex;flex-direction:column;gap:4px;}
+.team-side.away{align-items:flex-start;}
+.team-side.home{align-items:flex-end;}
+.team-logo{width:52px;height:52px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));}
+.team-logo-fallback{
+  width:52px;height:52px;display:flex;align-items:center;justify-content:center;
+  font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;letter-spacing:0.05em;
+  border:1px solid var(--border2);background:var(--surface2);color:var(--text-dim);
+}
+.team-name{
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;
+  letter-spacing:0.04em;text-transform:uppercase;line-height:1;
+}
+.team-record{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);letter-spacing:0.06em;}
+.at-divider{
+  font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;
+  letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);
+}
+
+/* ─────────────────────────────────────────
+   DAILY PICK ROWS — core game mechanic
+   Each day = one row. Past games pre-filled.
+   Open games pickable. Future dimmed.
+───────────────────────────────────────── */
+.pick-rows{padding:0 12px 4px;display:flex;flex-direction:column;gap:10px;}
+
+.pick-row{display:flex;flex-direction:column;gap:5px;}
+
+/* Row header */
+.row-header{display:flex;align-items:center;gap:8px;}
+.row-day-label{
+  font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;
+}
+.row-day-label.is-today{color:var(--accent);}
+.row-divider{flex:1;height:1px;background:var(--border);}
+.row-status-tag{
+  font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:0.14em;text-transform:uppercase;padding:1px 6px;
+}
+.tag-locked{color:var(--accent);border:1px solid rgba(200,168,75,0.3);}
+.tag-open{color:var(--text-muted);border:1px solid var(--border2);}
+.tag-played{color:var(--text-muted);border:1px solid var(--border2);opacity:0.6;}
+.tag-future{color:var(--text-muted);border:1px solid var(--border);opacity:0.4;}
+
+/* Row score */
+.row-score{
+  font-family:'Share Tech Mono',monospace;font-size:9px;
+  color:var(--gold-score);letter-spacing:0.06em;white-space:nowrap;
+}
+
+.row-slots{display:flex;gap:5px;}
+
+/* ─────────────────────────────────────────
+   GAME SLOT
+───────────────────────────────────────── */
+.game-slot{flex:1;display:flex;flex-direction:column;}
+
+.slot-num{
+  font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);
+  text-align:center;padding-bottom:3px;
+}
+
+.slot-box{
+  border:1px solid var(--border2);background:var(--surface2);
+  overflow:hidden;position:relative;transition:border-color 0.15s;
+  user-select:none;flex:1;
+}
+.slot-box.is-pickable:hover{border-color:var(--accent);}
+.slot-box.is-future{opacity:0.25;pointer-events:none;}
+.slot-box.is-prefilled{cursor:default;pointer-events:none;}
+
+/* Two tap targets */
+.slot-halves{display:grid;grid-template-columns:1fr 1fr;height:90px;}
+.slot-half{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;padding:8px 4px;cursor:pointer;
+  transition:background 0.12s,transform 0.1s;position:relative;
+}
+.slot-half:first-child{border-right:1px solid var(--border2);}
+.slot-half[disabled]{pointer-events:none;}
+.slot-half:active:not([disabled]){transform:scale(0.94);}
+
+.slot-half .h-logo{
+  width:26px;height:26px;object-fit:contain;opacity:0.55;
+  transition:opacity 0.12s,transform 0.12s;
+}
+.slot-half .h-abbr{
+  font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:0.07em;text-transform:uppercase;color:var(--text-muted);
+  transition:color 0.12s;
+}
+
+/* Hover */
+.slot-box.is-pickable .slot-half:hover .h-logo{opacity:1;transform:scale(1.1);}
+.slot-box.is-pickable .slot-half:hover .h-abbr{color:var(--text-dim);}
+
+/* Picked */
+.slot-half.is-picked .h-logo{opacity:1;transform:scale(1.06);}
+.slot-half.is-picked .h-abbr{color:var(--text);}
+.slot-half.is-picked::after{
+  content:'W';position:absolute;top:4px;right:5px;
+  font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:800;
+  letter-spacing:0.1em;color:var(--accent);
+}
+
+/* Pick flash */
+@keyframes pickFlash{
+  0%{background:rgba(200,168,75,0.25);}
+  100%{background:transparent;}
+}
+.slot-half.flash-pick{animation:pickFlash 0.3s ease forwards;}
+
+/* ─────────────────────────────────────────
+   LOCKED PICK CARD — shows your pick before game is played
+───────────────────────────────────────── */
+.slot-box.is-locked-pick {
+  border-color: var(--accent);
+  background: var(--surface2);
+  cursor: default;
+}
+
+.slot-locked-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 90px;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Dim color wash behind logo — muted, not the bright winner wash */
+.slot-locked-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  background: var(--pick-color, transparent);
+}
+
+.slot-locked-card .lp-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+  opacity: 0.55;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+}
+
+.slot-locked-card .lp-abbr {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  position: relative;
+  z-index: 1;
+}
+
+.slot-locked-card .lp-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.7;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─────────────────────────────────────────
+   WINNER CARD — replaces split box on completed games
+───────────────────────────────────────── */
+.slot-winner-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 90px;
+  position: relative;
+  overflow: hidden;
+  gap: 4px;
+}
+
+/* Subtle team color wash behind logo */
+.slot-winner-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  background: var(--winner-color, transparent);
+}
+
+.slot-winner-card .w-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+}
+
+.slot-winner-card .w-abbr {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
+}
+
+.slot-winner-card .w-score {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--text-dim);
+  position: relative;
+  z-index: 1;
+  letter-spacing: 0.06em;
+}
+
+.slot-winner-card .w-pick-note {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
+}
+
+/* Green border = correct pick, Red = wrong, Neutral = no pick */
+.slot-box.winner-correct {
+  border-color: var(--green) !important;
+  background: var(--green-bg) !important;
+}
+.slot-box.winner-correct .w-abbr { color: var(--green); }
+.slot-box.winner-correct .w-pick-note { color: var(--green); }
+
+.slot-box.winner-wrong {
+  border-color: var(--red) !important;
+  background: var(--red-bg) !important;
+}
+.slot-box.winner-wrong .w-abbr { color: var(--red); }
+.slot-box.winner-wrong .w-pick-note { color: var(--red); }
+
+.slot-box.winner-nopick {
+  border-color: var(--border2) !important;
+  opacity: 0.6;
+}
+.slot-box.winner-nopick .w-abbr { color: var(--text-muted); }
+
+/* Slot point badge */
+.slot-pts{
+  position:absolute;bottom:3px;left:0;right:0;
+  text-align:center;
+  font-family:'Share Tech Mono',monospace;font-size:9px;
+  color:var(--gold-score);letter-spacing:0.04em;
+}
+
+/* Reveal animation */
+@keyframes revealSlot{
+  0%{opacity:0;transform:scale(0.95);}
+  60%{opacity:1;transform:scale(1.02);}
+  100%{opacity:1;transform:scale(1);}
+}
+
+/* Pitcher bar */
+.slot-pitcher-bar{
+  border-top:1px solid var(--border);background:rgba(0,0,0,0.18);
+  padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:4px;
+}
+.pitcher-chip{display:flex;flex-direction:column;gap:1px;max-width:46%;}
+.pitcher-chip.home{align-items:flex-end;}
+.pitcher-chip-role{
+  font-family:'Barlow Condensed',sans-serif;font-size:8px;font-weight:700;
+  letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);
+}
+.pitcher-chip-name{
+  font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;
+  letter-spacing:0.03em;color:var(--text-dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px;
+}
+.pitcher-vs{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-muted);}
+
+/* Time bar */
+.slot-time-bar{
+  padding:3px 7px;background:rgba(0,0,0,0.12);border-top:1px solid var(--border);
+}
+.slot-time-text{
+  font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-muted);
+  letter-spacing:0.06em;display:flex;align-items:center;gap:5px;
+}
+.live-dot{
+  width:5px;height:5px;border-radius:50%;background:var(--live);flex-shrink:0;
+  animation:livePulse 1.2s ease-in-out infinite;
+}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.4;transform:scale(0.7);}}
+.live-label{color:var(--live);font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;}
+
+/* ─────────────────────────────────────────
+   PER-ROW LOCK BAR
+───────────────────────────────────────── */
+.row-lock-wrap{padding:0 0 2px;}
+.lock-btn{
+  width:100%;height:34px;background:transparent;
+  border:1px solid var(--border2);color:var(--text-muted);
+  font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:0.2em;text-transform:uppercase;
+  transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:9px;
+}
+.lock-btn:hover:not(:disabled):not(.is-locked){
+  background:var(--accent-dim);border-color:var(--accent);color:var(--accent);
+}
+.lock-btn:disabled:not(.is-locked){opacity:0.25;cursor:not-allowed;}
+.lock-btn.is-locked{
+  border-color:var(--accent);color:var(--accent);
+  background:rgba(200,168,75,0.05);cursor:default;pointer-events:none;
+}
+.lock-indicator{
+  width:6px;height:6px;border-radius:50%;background:var(--accent);
+  animation:lockedPulse 2.5s ease-in-out infinite;
+}
+@keyframes lockedPulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+@keyframes lockConfirm{0%{transform:scaleX(1);}15%{transform:scaleX(0.97);}40%{transform:scaleX(1.01);}100%{transform:scaleX(1);}}
+.lock-btn.locking{animation:lockConfirm 0.35s ease;}
+
+/* ─────────────────────────────────────────
+   CARD FOOTER — outcome + card total score
+───────────────────────────────────────── */
+.card-footer{
+  padding:8px 14px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  margin-top:6px;
+}
+.outcome-label{
+  font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);
+}
+.outcome-value{
+  font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;
+  letter-spacing:0.08em;text-transform:uppercase;color:var(--text-dim);
+}
+.outcome-value.is-sweep{color:var(--accent);}
+.outcome-value.is-split{color:var(--blue);}
+.outcome-value.is-win{color:var(--green);}
+.card-total-score{
+  font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--gold-score);
+  letter-spacing:0.06em;
+}
+
+/* ─────────────────────────────────────────
+   SCORING BREAKDOWN PANEL
+───────────────────────────────────────── */
+.score-breakdown{
+  padding:6px 14px 10px;border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:3px;
+}
+.score-row{
+  display:flex;align-items:center;justify-content:space-between;
+}
+.score-row-label{
+  font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;
+  letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);
+}
+.score-row-val{
+  font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gold-score);
+}
+.score-row-val.neg{color:var(--red);}
+
+/* ─────────────────────────────────────────
+   LOADING / ERROR / EMPTY
+───────────────────────────────────────── */
+.loading-state{
+  grid-column:1/-1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;min-height:280px;gap:16px;
+}
+.loading-bar-wrap{width:180px;height:2px;background:var(--border);overflow:hidden;position:relative;}
+.loading-bar-wrap::after{
+  content:'';position:absolute;left:-40%;width:40%;height:100%;background:var(--accent);
+  animation:loadBar 1.1s ease-in-out infinite;
+}
+@keyframes loadBar{0%{left:-40%;}100%{left:100%;}}
+.loading-label{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-muted);letter-spacing:0.12em;text-transform:uppercase;}
+.empty-state,.error-state{
+  grid-column:1/-1;background:var(--surface);border:1px solid var(--border);
+  padding:40px 32px;text-align:center;
+}
+.state-title{
+  font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;
+  letter-spacing:0.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px;
+}
+.state-body{font-size:12px;color:var(--text-muted);line-height:1.7;}
+.retry-btn{
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;
+  letter-spacing:0.18em;text-transform:uppercase;
+  background:transparent;border:1px solid var(--border2);
+  color:var(--text-dim);padding:8px 20px;cursor:pointer;
+  transition:border-color 0.15s,color 0.15s;margin-top:12px;display:inline-block;
+}
+.retry-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ─────────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────────── */
+@media(max-width:680px){
+  .series-grid{grid-template-columns:1fr;}
+  .stats-row{flex-wrap:wrap;}
+  .stat-block{min-width:calc(50% - 1px);}
+  header{padding:0 14px;}
+  main{padding:18px 14px 60px;}
+  .week-range{display:none;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-mark"></div>
+      <div class="logo-text"><span>Diamond</span></div>
+    </div>
+    <div class="header-meta">
+      <div class="week-range" id="weekRange">—</div>
+      <div class="accuracy-pill">
+        <span class="pill-label">Score</span>
+        <span class="pill-value" id="headerScore">—</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="stats-row">
+    <div class="stat-block">
+      <div class="s-label">Total Score</div>
+      <div class="s-value gold" id="statScore">0</div>
+      <div class="s-sub">pts this week</div>
+    </div>
+    <div class="stat-block">
+      <div class="s-label">Correct</div>
+      <div class="s-value" id="statCorrect">0</div>
+      <div class="s-sub">games called</div>
+    </div>
+    <div class="stat-block">
+      <div class="s-label">Pending</div>
+      <div class="s-value" id="statPending">0</div>
+      <div class="s-sub">to be played</div>
+    </div>
+    <div class="stat-block">
+      <div class="s-label">Accuracy</div>
+      <div class="s-value" id="statRate">—</div>
+      <div class="acc-bar"><div class="acc-fill" id="accFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <div class="section-title">Active Series This Week</div>
+    <div class="section-count" id="seriesCount">—</div>
+  </div>
+
+  <div class="series-grid" id="seriesGrid">
+    <div class="loading-state">
+      <div class="loading-bar-wrap"></div>
+      <div class="loading-label">Loading schedule...</div>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════
+   VERSION & CACHE BUSTING
+   Bump APP_VERSION with every upload to GitHub.
+   Format: 'YYYY.MM.DD.build' — e.g. increment
+   the last number for same-day releases.
+═══════════════════════════════════════════ */
+const APP_VERSION  = '2026.05.28.11';
+const VERSION_KEY  = 'diamond_version';
+
+function bustCache() {
+  try {
+    const stored = localStorage.getItem(VERSION_KEY);
+    if (stored !== APP_VERSION) {
+      // New version detected — stamp it then hard reload once
+      localStorage.setItem(VERSION_KEY, APP_VERSION);
+      if (stored !== null) {
+        // Only reload if there was a previous version (not first launch)
+        window.location.reload();
+      }
+    }
+  } catch {
+    // localStorage blocked — continue normally
+  }
+}
+
+bustCache();
+
+/* ═══════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════ */
+const STORAGE_KEY = 'diamond_v4';
+
+const GAME_STATUS = Object.freeze({ PREVIEW:'P', LIVE:'L', FINAL:'F', POSTPONED:'D' });
+const PICK        = Object.freeze({ AWAY:'away', HOME:'home' });
+
+// Points by which day-row the pick was made (1-indexed)
+const BASE_PTS    = Object.freeze({ 1:30, 2:20, 3:15, 4:10 });
+// Streak bonus: days held correctly from Day 1 (additional days held beyond Day 1)
+const STREAK_BONUS = Object.freeze({ 1:5, 2:10, 3:15 }); // key = extra days held
+// Switch-and-wrong penalty
+const SWITCH_WRONG_PTS = -5;
+// Series outcome bonuses
+const OUTCOME_BONUS = Object.freeze({
+  SWEEP_CORRECT:        40,
+  SPLIT_CORRECT:        30,
+  WIN_3_1_CORRECT_TEAM: 25,   // 4-game series: called the winning team correctly
+  WIN_3_1_WRONG_TEAM:   10,   // 4-game series: called 3-1 but wrong team
+  WIN_2_1_CORRECT_TEAM: 20,   // 3-game series: called the winning team correctly
+  WIN_2_1_WRONG_TEAM:    8,   // 3-game series: called 2-1 but wrong team
+});
+
+const TEAM_ABBR = Object.freeze({
+  'Arizona Diamondbacks':'ARI','Atlanta Braves':'ATL','Baltimore Orioles':'BAL',
+  'Boston Red Sox':'BOS','Chicago Cubs':'CHC','Chicago White Sox':'CWS',
+  'Cincinnati Reds':'CIN','Cleveland Guardians':'CLE','Colorado Rockies':'COL',
+  'Detroit Tigers':'DET','Houston Astros':'HOU','Kansas City Royals':'KC',
+  'Los Angeles Angels':'LAA','Los Angeles Dodgers':'LAD','Miami Marlins':'MIA',
+  'Milwaukee Brewers':'MIL','Minnesota Twins':'MIN','New York Mets':'NYM',
+  'New York Yankees':'NYY','Philadelphia Phillies':'PHI','Pittsburgh Pirates':'PIT',
+  'San Diego Padres':'SD','San Francisco Giants':'SF','Seattle Mariners':'SEA',
+  'St. Louis Cardinals':'STL','Tampa Bay Rays':'TB','Texas Rangers':'TEX',
+  'Toronto Blue Jays':'TOR','Washington Nationals':'WSH',
+  'Athletics':'OAK','Oakland Athletics':'OAK',
+});
+
+// Keyed by abbreviation — stable across MLB Stats API and ESPN API.
+const TEAM_COLORS = Object.freeze({
+  'ARI':[167,25,48],  'ATL':[19,114,48],   'BAL':[223,70,1],   'BOS':[189,48,57],
+  'CHC':[14,51,134],  'CWS':[39,38,31],    'CIN':[198,1,31],   'CLE':[0,56,93],
+  'COL':[51,153,102], 'DET':[12,35,64],    'HOU':[0,45,98],    'KC':[0,70,135],
+  'LAA':[186,0,33],   'LAD':[0,50,98],     'MIA':[0,56,49],    'MIL':[19,41,75],
+  'MIN':[12,35,64],   'NYM':[0,45,114],    'NYY':[0,48,135],   'OAK':[0,45,98],
+  'PHI':[232,24,40],  'PIT':[39,37,31],    'SD':[47,36,29],    'SF':[253,90,30],
+  'SEA':[12,44,86],   'STL':[196,30,58],   'TB':[9,44,92],     'TEX':[0,50,120],
+  'TOR':[19,74,142],  'WSH':[171,0,3],
+});
+
+/* ═══════════════════════════════════════════
+   PURE HELPERS — no side-effects, testable
+═══════════════════════════════════════════ */
+function toDateStr(d){return d.toISOString().split('T')[0];}
+
+function shiftDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+
+function todayMidnight(){const d=new Date();d.setHours(0,0,0,0);return d;}
+
+function weekRange(ref){
+  const day=ref.getDay();
+  const diff=day===0?-6:1-day;
+  const mon=shiftDays(ref,diff);
+  return{start:mon,end:shiftDays(mon,6)};
+}
+
+function teamAbbr(name){
+  return TEAM_ABBR[name]||name.split(' ').pop().slice(0,3).toUpperCase();
+}
+function teamColor(abbr){
+  return TEAM_COLORS[abbr] || [100,100,100];
+}
+function logoUrl(id, logoOverride){
+  if(logoOverride) return logoOverride;
+  return `https://a.espncdn.com/i/teamlogos/mlb/500/${id}.png`;
+}
+function seriesKey(aId,hId){return `${aId}_${hId}`;}
+
+// Per-day per-game pick key: sk_g{gameIdx}_d{dayRow}
+function pickKey(sk,gameIdx,dayRow){return `${sk}_g${gameIdx}_d${dayRow}`;}
+
+function fmtShortDate(dateStr){
+  return new Date(dateStr+'T12:00:00')
+    .toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+function fmtTime(iso){
+  if(!iso)return'';
+  try{return new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});}
+  catch{return'';}
+}
+function fmtWeekRange(s,e){
+  const o={month:'short',day:'numeric'};
+  return`${s.toLocaleDateString('en-US',o)} – ${e.toLocaleDateString('en-US',o)}`;
+}
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// safeScore: parseFloat returns NaN for null/undefined/non-numeric strings.
+// isNaN check ensures 0-0 games, missing scores, and bad data all safely become 0.
+function safeScore(s){ const n = parseFloat(s); return isNaN(n) ? 0 : n; }
+
+/* ═══════════════════════════════════════════
+   DOMAIN MODEL
+═══════════════════════════════════════════ */
+
+/**
+ * Game — wraps one MLB game with injected-today helpers for testability.
+ */
+class Game {
+  constructor(raw,idx){
+    if (!raw.status) console.warn('[Diamond] Game constructed with missing status — gameId:', raw.gameId);
+    this.idx=idx;
+    this.gameId=raw.gameId;
+    this.date=raw.date        || '';
+    this.dateObj=raw.dateObj  || new Date();
+    this.time=raw.time        || null;
+    this.status=raw.status    || GAME_STATUS.PREVIEW;
+    this.statusDetail=raw.statusDetail || '';
+    this.awayScore=raw.awayScore ?? null;
+    this.homeScore=raw.homeScore ?? null;
+    this.awayWin=raw.awayWin  || false;
+    this.homeWin=raw.homeWin  || false;
+    this.awayPitcher=raw.awayPitcher || null;
+    this.homePitcher=raw.homePitcher || null;
+  }
+  isFinal(){return this.status===GAME_STATUS.FINAL;}
+  isLive(){return this.status===GAME_STATUS.LIVE;}
+  isPostponed(){return this.status===GAME_STATUS.POSTPONED;}
+  // isFuture() and isPickable() retained for test harness compatibility.
+  // Not used in production render path — slot state is managed by getSlotStates().
+  isFuture(today){const d=new Date(this.dateObj);d.setHours(0,0,0,0);return d>today;}
+  isPickable(today){return!this.isFinal()&&!this.isFuture(today)&&!this.isPostponed();}
+  evaluate(pick){
+    if(!this.isFinal()||!pick)return null;
+    return(pick===PICK.AWAY&&this.awayWin)||(pick===PICK.HOME&&this.homeWin)?'correct':'wrong';
+  }
+  scoreStr(){
+    if(this.awayScore==null||this.homeScore==null)return'';
+    return`${this.awayScore} – ${this.homeScore}`;
+  }
+  winnerSide(){
+    if(!this.isFinal())return null;
+    return this.awayWin?PICK.AWAY:PICK.HOME;
+  }
+}
+
+/**
+ * Series — a group of Game objects for one matchup.
+ * Sorted by date ascending. Each game has a stable idx.
+ */
+class Series {
+  constructor({key,away,home,venue,games,totalGames}){
+    this.key=key;this.away=away;this.home=home;
+    this.venue=venue;this.games=games;
+    // totalGames set to games.length after block-splitting in parseDatesIntoSeries
+    this.totalGames=totalGames||games.length;
+  }
+  startDate(){return this.games[0]?.dateObj;}
+  endDate(){return this.games[this.games.length-1]?.dateObj;}
+  completedGames(){return this.games.filter(g=>g.isFinal());}
+
+  /**
+   * Unique dates in this series, sorted ascending.
+   * Each date = one "day row" in the game mechanic.
+   */
+  seriesDates(){
+    const seen=new Set();
+    return this.games
+      .map(g=>g.date)
+      .filter(d=>{if(seen.has(d))return false;seen.add(d);return true;})
+      .sort();
+  }
+
+  outcome(){
+    const done=this.completedGames();
+    if(!done.length)return null;
+    const awayW=done.filter(g=>g.awayWin).length;
+    const homeW=done.filter(g=>g.homeWin).length;
+    const total=this.totalGames;
+    const isDone=done.length===total;
+    const awayLabel = this.away.abbr || teamAbbr(this.away.name);
+    const homeLabel = this.home.abbr || teamAbbr(this.home.name);
+    if(isDone){
+      if(awayW===total)return{label:`${awayLabel} Sweep`,type:'sweep',awayW,homeW};
+      if(homeW===total)return{label:`${homeLabel} Sweep`,type:'sweep',awayW,homeW};
+      // Split = exactly even wins (only possible in even-game series: 1-1, 2-2)
+      // Uneven result = one team won the series
+      if(awayW===homeW)return{label:'Series Split',type:'split',awayW,homeW};
+      const winLabel = awayW>homeW?awayLabel:homeLabel;
+      return{label:`${winLabel} Win Series ${Math.max(awayW,homeW)}-${Math.min(awayW,homeW)}`,type:'win',awayW,homeW};
+    }
+    return{label:`${awayLabel} ${awayW} – ${homeW} ${homeLabel}`,type:'live',awayW,homeW};
+  }
+
+  dateRange(){
+    if(!this.games.length)return'';
+    const first=fmtShortDate(this.games[0].date);
+    const last=fmtShortDate(this.games[this.games.length-1].date);
+    return this.games.length>1?`${first} – ${last}`:first;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   SCORING ENGINE
+   Pure functions — no side-effects, testable.
+═══════════════════════════════════════════ */
+
+/**
+ * For a single game, compute points earned across all day-rows.
+ *
+ * dayPicks: object keyed by dayRow (1-based), value = pick made that day or null
+ *           dayPicks[1] = Day 1 pick, dayPicks[2] = Day 2 pick, etc.
+ * game: Game object (must be final)
+ * gameIdx: 0-based index of the game in the series (used for day-row alignment)
+ *
+ * Returns { pts, breakdown[] }
+ */
+function scoreGame(game, dayPicks, gameIdx){
+  if(!game.isFinal())return{pts:0,breakdown:[]};
+
+  const winner=game.winnerSide();
+  const breakdown=[];
+  let total=0;
+
+  // Collect all picks made for this game across days.
+  // dayPicks is an object: { dayRow: side }
+  // Guard: a pick on a day before the game was available is invalid.
+  // Game at idx=N first appears on dayRow N+1.
+  const firstAvailableDay = gameIdx + 1;
+  const dayRows = Object.keys(dayPicks)
+    .map(Number)
+    .filter(d => d >= firstAvailableDay)   // discard picks before game existed
+    .sort((a,b) => a-b);
+  if(!dayRows.length)return{pts:0,breakdown:[]};
+
+  const firstDay = dayRows[0];
+  const finalPick = dayPicks[dayRows[dayRows.length-1]]; // last day's pick
+  const day1Pick  = dayPicks[firstDay];
+
+  // Base points from the day the pick was first made
+  const basePts = BASE_PTS[firstDay] || 10;
+  const isCorrect = finalPick === winner;
+
+  if(!isCorrect){
+    // Check switch penalty: did they switch from Day 1 and still get it wrong?
+    if(dayRows.length > 1 && day1Pick !== finalPick){
+      breakdown.push({label:`Gm ${gameIdx+1} Switch & Wrong`,pts:SWITCH_WRONG_PTS});
+      total += SWITCH_WRONG_PTS;
+    }
+    return{pts:total,breakdown};
+  }
+
+  // Correct pick — award base points for day first picked
+  breakdown.push({label:`Gm ${gameIdx+1} Correct (Day ${firstDay})`,pts:basePts});
+  total += basePts;
+
+  // Streak bonus: how many consecutive days from Day 1 did they hold the same correct pick?
+  if(firstDay === 1){
+    let streakDays = 0;
+    for(let d=2; d<=4; d++){
+      if(dayPicks[d] && dayPicks[d] === day1Pick) streakDays++;
+      else if(dayPicks[d] && dayPicks[d] !== day1Pick) break;
+      else if(!dayPicks[d]) break; // no pick that day = streak ends
+    }
+    if(streakDays > 0 && STREAK_BONUS[streakDays]){
+      breakdown.push({label:`Gm ${gameIdx+1} Streak +${streakDays}d`,pts:STREAK_BONUS[streakDays]});
+      total += STREAK_BONUS[streakDays];
+    }
+  }
+
+  return{pts:total,breakdown};
+}
+
+/**
+ * Score the series outcome bonus.
+ * Uses Day 1 picks across all games to determine predicted pattern.
+ *
+ * series: Series object
+ * allDayPicks: { gameIdx: { dayRow: side } }
+ */
+function scoreSeriesOutcome(series, allDayPicks){
+  const outcome = series.outcome();
+  if(!outcome || outcome.type === 'live') return {pts:0, breakdown:[]};
+
+  // Reconstruct Day 1 predicted pattern
+  const day1Predictions = series.games.map(g => {
+    const dp = allDayPicks[g.idx] || {};
+    return dp[1] || null; // Day 1 pick for this game
+  });
+
+  if(day1Predictions.some(p => p === null)) return {pts:0, breakdown:[]};
+
+  const predAwayW = day1Predictions.filter(p => p === PICK.AWAY).length;
+  const predHomeW = day1Predictions.filter(p => p === PICK.HOME).length;
+  const total = series.totalGames;
+  const {awayW, homeW} = outcome;
+
+  // Determine actual and predicted outcome type
+  const actualSweepTeam = awayW === total ? PICK.AWAY : homeW === total ? PICK.HOME : null;
+  const predSweepTeam   = predAwayW === total ? PICK.AWAY : predHomeW === total ? PICK.HOME : null;
+
+  let pts = 0;
+  let label = '';
+
+  if(actualSweepTeam && predSweepTeam && actualSweepTeam === predSweepTeam){
+    pts = OUTCOME_BONUS.SWEEP_CORRECT;
+    label = 'Called the Sweep';
+  } else if(awayW === homeW && predAwayW === predHomeW){
+    pts = OUTCOME_BONUS.SPLIT_CORRECT;
+    label = 'Called the Split';
+  } else if(total === 4){
+    const actual31Team = awayW === 3 ? PICK.AWAY : homeW === 3 ? PICK.HOME : null;
+    const pred31Team   = predAwayW === 3 ? PICK.AWAY : predHomeW === 3 ? PICK.HOME : null;
+    if(actual31Team && pred31Team){
+      if(actual31Team === pred31Team){
+        pts = OUTCOME_BONUS.WIN_3_1_CORRECT_TEAM;
+        label = 'Called 3-1 (Right Team)';
+      } else {
+        pts = OUTCOME_BONUS.WIN_3_1_WRONG_TEAM;
+        label = 'Called 3-1 (Wrong Team)';
+      }
+    }
+  } else if(total === 3){
+    // 3-game series: award bonus for correctly predicting the 2-1 winning team
+    const actual21Team = awayW === 2 ? PICK.AWAY : homeW === 2 ? PICK.HOME : null;
+    const pred21Team   = predAwayW === 2 ? PICK.AWAY : predHomeW === 2 ? PICK.HOME : null;
+    if(actual21Team && pred21Team){
+      if(actual21Team === pred21Team){
+        pts = OUTCOME_BONUS.WIN_2_1_CORRECT_TEAM;
+        label = 'Called 2-1 (Right Team)';
+      } else {
+        pts = OUTCOME_BONUS.WIN_2_1_WRONG_TEAM;
+        label = 'Called 2-1 (Wrong Team)';
+      }
+    }
+  }
+
+  if(!pts) return {pts:0, breakdown:[]};
+  return {pts, breakdown:[{label, pts}]};
+}
+
+/**
+ * Compute total score for a series.
+ * Returns { total, gameBreakdowns, outcomeBonus, allBreakdown }
+ */
+function computeSeriesScore(series, state){
+  const sk = series.key;
+  let total = 0;
+  const allBreakdown = [];
+
+  // Build allDayPicks: { gameIdx: { dayRow: side } }
+  const allDayPicks = {};
+  series.games.forEach(g => { allDayPicks[g.idx] = {}; });
+
+  // Pull picks from state — stored as pickKey(sk, gameIdx, dayRow)
+  // Filter by series key prefix to avoid O(n-all-picks) scan per series.
+  // The prefix sk + '_g' uniquely identifies this series' picks.
+  const skPrefix = sk + '_g';
+  Object.keys(state.picks).forEach(key => {
+    if(!key.startsWith(skPrefix)) return;
+    // parse key: sk_g{gameIdx}_d{dayRow}
+    const m = key.match(/_g(\d+)_d(\d+)$/);
+    if(!m) return;
+    const gameIdx = parseInt(m[1]);
+    const dayRow  = parseInt(m[2]);
+    if(!allDayPicks[gameIdx]) allDayPicks[gameIdx] = {};
+    allDayPicks[gameIdx][dayRow] = state.picks[key];
+  });
+
+  // Score each game
+  series.games.forEach(g => {
+    const dp = allDayPicks[g.idx] || {};
+    const {pts, breakdown} = scoreGame(g, dp, g.idx);
+    total += pts;
+    allBreakdown.push(...breakdown);
+  });
+
+  // Series outcome bonus
+  const {pts: opPts, breakdown: opBd} = scoreSeriesOutcome(series, allDayPicks);
+  total += opPts;
+  allBreakdown.push(...opBd);
+
+  return {total, allBreakdown};
+}
+
+/* ═══════════════════════════════════════════
+   DATA LAYER — injectable seam for testing
+═══════════════════════════════════════════ */
+const ESPN_API = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb';
+
+const DataSource = {
+
+  async _fetch(url, timeoutMs = 12000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      console.log('[Diamond] Fetching:', url);
+      const res = await fetch(url, { signal: controller.signal, credentials: 'omit', headers: { 'Accept': 'application/json' } });
+      console.log('[Diamond] Status:', res.status);
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch(e) {
+        console.error('[Diamond] Non-JSON response:', text.slice(0, 200));
+        throw new Error(`Non-JSON response (status ${res.status})`);
+      }
+    } catch(err) {
+      if (err.name === 'AbortError') throw new Error('Request timed out — tap Retry');
+      console.error('[Diamond] Fetch error:', err.message);
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+
+  async fetchDay(dateStr) {
+    const d = dateStr.replace(/-/g, '');
+    const url = `${ESPN_API}/scoreboard?dates=${d}&limit=30`;
+    const data = await this._fetch(url);
+    return data.events || [];
+  },
+
+  async fetchSchedule(startDate, endDate) {
+    const dates = [];
+    const cur = new Date(startDate + 'T12:00:00');
+    const end = new Date(endDate   + 'T12:00:00');
+    while (cur <= end) {
+      dates.push(toDateStr(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    const results = await Promise.all(dates.map(async d => {
+      try {
+        const events = await this.fetchDay(d);
+        return { date: d, events };
+      } catch(err) {
+        console.warn('[Diamond] Failed to fetch', d, err.message);
+        return { date: d, events: [] };
+      }
+    }));
+    return results;
+  },
+
+  async fetchStandings() {
+    const url = `${ESPN_API}/standings`;
+    try {
+      const data = await this._fetch(url);
+      return parseESPNStandings(data);
+    } catch(err) {
+      console.warn('[Diamond] Standings unavailable:', err.message);
+      return {};
+    }
+  },
+};
+
+/* ═══════════════════════════════════════════
+   ESPN PARSERS
+═══════════════════════════════════════════ */
+
+function espnStatusToCode(state) {
+  switch(state) {
+    case 'pre':       return GAME_STATUS.PREVIEW;
+    case 'in':        return GAME_STATUS.LIVE;
+    case 'post':      return GAME_STATUS.FINAL;
+    case 'postponed': return GAME_STATUS.POSTPONED;
+    default:          return GAME_STATUS.PREVIEW;
+  }
+}
+
+function espnTeamObj(competitor) {
+  const t = competitor.team || {};
+  const parsedId = parseInt(t.id);
+  return {
+    id:   isNaN(parsedId) ? 0 : parsedId,   // guard against NaN breaking seriesKey
+    name: t.displayName || t.name || t.abbreviation || '?',
+    abbr: t.abbreviation || '',
+    logo: t.logo || '',
+  };
+}
+
+function parseESPNStandings(data) {
+  const map = {};
+  const children = data?.children || [];
+  children.forEach(league => {
+    (league.children || []).forEach(div => {
+      (div.standings?.entries || []).forEach(entry => {
+        const parsedId = parseInt(entry.team?.id);
+        const teamId   = isNaN(parsedId) ? null : parsedId;
+        const stats    = entry.stats || [];
+        const wins     = stats.find(s => s.name === 'wins')?.value   || 0;
+        const losses   = stats.find(s => s.name === 'losses')?.value || 0;
+        if (teamId) map[teamId] = `${wins}-${losses}`;
+      });
+    });
+  });
+  if (!Object.keys(map).length) {
+    console.warn('[Diamond] parseESPNStandings: empty result — ESPN standings structure may have changed');
+  }
+  return map;
+}
+
+/**
+ * Parse ESPN schedule results into Series objects.
+ * Input: [{ date: 'YYYY-MM-DD', events: ESPN event[] }]
+ */
+function parseDatesIntoSeries(dayResults, displayStart, displayEnd) {
+  const map = {};
+
+  dayResults.forEach(({ date: dateStr, events }) => {
+    (events || []).forEach(event => {
+      const comp = event.competitions?.[0];
+      if (!comp) return;
+
+      const stateType = event.status?.type?.state || 'pre';
+      const status    = espnStatusToCode(stateType);
+      if (status === GAME_STATUS.POSTPONED) return;
+
+      const competitors = comp.competitors || [];
+      const awaySide    = competitors.find(c => c.homeAway === 'away');
+      const homeSide    = competitors.find(c => c.homeAway === 'home');
+      if (!awaySide || !homeSide) return;
+
+      const away = espnTeamObj(awaySide);
+      const home = espnTeamObj(homeSide);
+      const sk   = seriesKey(away.id, home.id);
+
+      if (!map[sk]) {
+        map[sk] = { key:sk, away, home, venue:comp.venue?.fullName||'', games:[], totalGames:0 };
+      }
+
+      const awayScore = safeScore(awaySide.score);
+      const homeScore = safeScore(homeSide.score);
+      const isFinal   = status === GAME_STATUS.FINAL;
+      const awayWin   = isFinal && awayScore > homeScore;
+      const homeWin   = isFinal && homeScore > awayScore;
+
+      const probables   = comp.probables || [];
+      const awayPitcher = probables.find(p => p.homeAway === 'away')?.athlete?.displayName || null;
+      const homePitcher = probables.find(p => p.homeAway === 'home')?.athlete?.displayName || null;
+
+      map[sk].games.push(new Game({
+        gameId:       event.id,
+        date:         dateStr,
+        dateObj:      new Date(dateStr + 'T12:00:00'),
+        time:         event.date,
+        status,
+        statusDetail: event.status?.type?.shortDetail || '',
+        awayScore:    isFinal ? awayScore : null,
+        homeScore:    isFinal ? homeScore : null,
+        awayWin,
+        homeWin,
+        awayPitcher,
+        homePitcher,
+      }, 0));
+    });
+  });
+
+  const dsStr = toDateStr(displayStart);
+  const deStr = toDateStr(displayEnd);
+
+  return Object.values(map)
+    .filter(raw => raw.games.some(g => g.date >= dsStr && g.date <= deStr))
+    .map(raw => {
+      raw.games.sort((a, b) => a.dateObj - b.dateObj);
+
+      // Guard: split games into contiguous series blocks.
+      // If the same team pair has a gap of more than 1 day between games,
+      // they are separate series. Keep only the block that overlaps the display week.
+      if(!raw.games.length) return new Series(raw);
+      const blocks = [];
+      let block = [raw.games[0]];
+      for(let i = 1; i < raw.games.length; i++){
+        const prev = raw.games[i-1];
+        const curr = raw.games[i];
+        const dayGap = Math.round((curr.dateObj - prev.dateObj) / (1000*60*60*24));
+        if(dayGap <= 1){
+          block.push(curr);
+        } else {
+          blocks.push(block);
+          block = [curr];
+        }
+      }
+      blocks.push(block);
+
+      // Pick the block that has the most overlap with display week
+      const best = blocks.reduce((a, b) => {
+        const aOverlap = a.filter(g => g.date >= dsStr && g.date <= deStr).length;
+        const bOverlap = b.filter(g => g.date >= dsStr && g.date <= deStr).length;
+        return bOverlap > aOverlap ? b : a;
+      });
+
+      best.forEach((g, i) => { g.idx = i; });
+      raw.games    = best;
+      raw.totalGames = best.length;
+      return new Series(raw);
+    })
+    .filter(s => s.games.length > 0)
+    .sort((a, b) => a.startDate() - b.startDate());
+}
+
+/* ═══════════════════════════════════════════
+   APP STATE & STORAGE
+═══════════════════════════════════════════ */
+// ApiCache holds ephemeral API data — separate from durable user state.
+// Records and series come from the network and are never persisted to localStorage.
+const ApiCache={
+  records:{},   // { teamId: 'W-L' }
+  series:[],    // Series[]
+};
+
+const AppState={
+  picks:{},    // { pickKey: 'away'|'home' }
+  locked:{},   // { `${sk}_d${dayRow}`: true }
+
+  load(){
+    try{
+      const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+      this.picks=s.picks||{};
+      this.locked=s.locked||{};
+    }catch{this.picks={};this.locked={};}
+  },
+
+  save(){
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify({picks:this.picks,locked:this.locked}));}
+    catch{/* silent */}
+  },
+
+  // Lock key per series per day-row
+  lockKey(sk,dayRow){return`${sk}_d${dayRow}`;},
+  isRowLocked(sk,dayRow){return!!this.locked[this.lockKey(sk,dayRow)];},
+  lockRow(sk,dayRow){this.locked[this.lockKey(sk,dayRow)]=true;this.save();},
+
+  setPick(sk,gameIdx,dayRow,side){
+    if(this.isRowLocked(sk,dayRow))return;
+    const pk=pickKey(sk,gameIdx,dayRow);
+    if(this.picks[pk]===side)delete this.picks[pk];
+    else this.picks[pk]=side;
+    this.save();
+  },
+
+  getPick(sk,gameIdx,dayRow){return this.picks[pickKey(sk,gameIdx,dayRow)]||null;},
+};
+
+/* ═══════════════════════════════════════════
+   RENDER HELPERS
+═══════════════════════════════════════════ */
+function renderTeamLogo(team,size=52){
+  const a=team.abbr||teamAbbr(team.name);
+  const src=logoUrl(team.id,team.logo);
+  return`<img class="team-logo" src="${src}" width="${size}" height="${size}" alt="${a}"
+    onerror="this.outerHTML='<div class=\\'team-logo-fallback\\'>${a}</div>'">`;
+}
+
+function renderPitcherBar(game){
+  const a=game.awayPitcher,h=game.homePitcher;
+  if(!a&&!h)return'';
+  const fn=n=>n?n.split(' ').pop():'TBD';
+  return`<div class="slot-pitcher-bar">
+    <div class="pitcher-chip away">
+      <span class="pitcher-chip-role">Away</span>
+      <span class="pitcher-chip-name">${escHtml(fn(a))}</span>
+    </div>
+    <span class="pitcher-vs">vs</span>
+    <div class="pitcher-chip home">
+      <span class="pitcher-chip-role">Home</span>
+      <span class="pitcher-chip-name">${escHtml(fn(h))}</span>
+    </div>
+  </div>`;
+}
+
+function renderTimeBar(game){
+  if(game.isFinal())return'';
+  if(game.isLive()){
+    return`<div class="slot-time-bar"><div class="slot-time-text">
+      <span class="live-dot"></span><span class="live-label">Live</span>
+      ${game.statusDetail?`<span>${escHtml(game.statusDetail)}</span>`:''}
+    </div></div>`;
+  }
+  const t=fmtTime(game.time);
+  if(!t)return'';
+  return`<div class="slot-time-bar"><div class="slot-time-text">${escHtml(t)}</div></div>`;
+}
+
+/**
+ * Render a single game slot within a day-row.
+ * @param {SlotContext} ctx
+ *   game        — Game object
+ *   series      — Series object
+ *   dayRow      — 1-based row index
+ *   today       — Date at midnight (injected for testability)
+ *   isPrefilled — game is final and its natural row came before this row
+ *   isMissed    — game not final, natural row already passed (slot dimmed forever)
+ *   isBeyondRow — game not final, belongs to a later row (not yet available)
+ *   isPickable  — slot is open for picking this row
+ *   rowLocked   — this row has been locked
+ *   rowOpen     — row date has arrived and row is not locked
+ */
+function renderGameSlot({ game, series, dayRow, today, isPrefilled, isMissed, isBeyondRow, isPickable, rowLocked, rowOpen }){
+  const sk       = series.key;
+  const pick     = AppState.getPick(sk, game.idx, dayRow);
+  const awayAbbr = series.away.abbr || teamAbbr(series.away.name);
+  const homeAbbr = series.home.abbr || teamAbbr(series.home.name);
+  const awayColor = teamColor(series.away.abbr || teamAbbr(series.away.name));
+  const homeColor = teamColor(series.home.abbr || teamAbbr(series.home.name));
+
+  // All pickability decisions come from renderPickRows slot state rules.
+  // dim slot if: row is future, game is beyond this row, or opportunity was missed
+  const isFutureSlot = (!rowOpen && !isPrefilled && !game.isFinal()) || isBeyondRow || isMissed;
+
+  // ── COMPLETED GAME → Winner card
+  // Guard: only show winner card if game's scheduled date has arrived.
+  // Prevents ESPN data issues from showing future games as completed.
+  // ISO date string comparison is safe: 'YYYY-MM-DD' sorts lexicographically = chronologically
+  const gameDateArrived = game.date <= toDateStr(today);
+
+  if(game.isFinal() && gameDateArrived){
+    const winnerIsAway  = game.awayWin;
+    const winnerAbbr    = winnerIsAway ? awayAbbr : homeAbbr;
+    const winnerLogoUrl = logoUrl(winnerIsAway ? series.away.id : series.home.id,
+                                  winnerIsAway ? series.away.logo : series.home.logo);
+    const winnerColor   = winnerIsAway ? awayColor : homeColor;
+    const evaluation    = game.evaluate(pick);
+
+    // Border/bg class based on whether user's pick was correct
+    let resultClass = 'winner-nopick';
+    let pickNote    = '';
+    if(evaluation === 'correct'){
+      resultClass = 'winner-correct';
+      pickNote    = '✓ called it';
+    } else if(evaluation === 'wrong'){
+      resultClass = 'winner-wrong';
+      pickNote    = `picked ${pick === PICK.AWAY ? awayAbbr : homeAbbr}`;
+    }
+
+    // Point badge
+    let ptsHtml = '';
+    if(pick){
+      const dp = {};
+      dp[dayRow] = pick;
+      for(let d = 1; d < dayRow; d++){
+        const ep = AppState.getPick(sk, game.idx, d);
+        if(ep) dp[d] = ep;
+      }
+      const {pts} = scoreGame(game, dp, game.idx);
+      if(pts !== 0) ptsHtml = `<div class="slot-pts">${pts > 0 ? '+' : ''}${pts}pts</div>`;
+    }
+
+    const colorStr = `rgb(${winnerColor[0]},${winnerColor[1]},${winnerColor[2]})`;
+
+    return `<div class="game-slot">
+      <div class="slot-num">Gm ${game.idx+1}</div>
+      <div class="slot-box ${resultClass}"
+        data-sk="${escHtml(sk)}" data-gidx="${game.idx}" data-dayrow="${dayRow}">
+        <div class="slot-winner-card" style="--winner-color:${colorStr}">
+          <img class="w-logo" src="${escHtml(winnerLogoUrl)}"
+            alt="${escHtml(winnerAbbr)}"
+            onerror="this.style.display='none'">
+          <span class="w-abbr">${escHtml(winnerAbbr)}</span>
+          ${game.scoreStr() ? `<span class="w-score">${escHtml(game.scoreStr())}</span>` : ''}
+          ${pickNote ? `<span class="w-pick-note">${escHtml(pickNote)}</span>` : ''}
+        </div>
+        ${ptsHtml}
+        ${renderTimeBar(game)}
+      </div>
+    </div>`;
+  }
+
+  // ── LOCKED PICK → picked team's logo fills the box, dimmed
+  // Shows after row is locked, game not yet played.
+  // Also show for games whose date hasn't arrived yet (future games in series).
+  if(rowLocked && pick && (!game.isFinal() || !gameDateArrived)){
+    const pickedIsAway  = pick === PICK.AWAY;
+    const pickedAbbr    = pickedIsAway ? awayAbbr : homeAbbr;
+    const pickedLogoUrl = logoUrl(
+      pickedIsAway ? series.away.id : series.home.id,
+      pickedIsAway ? series.away.logo : series.home.logo
+    );
+    const pickedColor   = pickedIsAway ? awayColor : homeColor;
+    const colorStr      = `rgb(${pickedColor[0]},${pickedColor[1]},${pickedColor[2]})`;
+
+    return `<div class="game-slot">
+      <div class="slot-num">Gm ${game.idx+1}</div>
+      <div class="slot-box is-locked-pick"
+        data-sk="${escHtml(sk)}" data-gidx="${game.idx}" data-dayrow="${dayRow}">
+        <div class="slot-locked-card" style="--pick-color:${colorStr}">
+          <img class="lp-logo" src="${escHtml(pickedLogoUrl)}"
+            alt="${escHtml(pickedAbbr)}"
+            onerror="this.style.display='none'">
+          <span class="lp-abbr">${escHtml(pickedAbbr)}</span>
+          <span class="lp-label">Locked</span>
+        </div>
+        ${renderTimeBar(game)}
+      </div>
+    </div>`;
+  }
+
+  // ── OPEN / FUTURE GAME → Split two-team pick box
+  let boxClass   = 'slot-box';
+  if(isPickable)   boxClass += ' is-pickable';
+  if(isFutureSlot) boxClass += ' is-future';
+
+  const disabledAttr = isPickable ? '' : 'disabled';
+  const awayPicked   = pick === PICK.AWAY ? ' is-picked' : '';
+  const homePicked   = pick === PICK.HOME ? ' is-picked' : '';
+
+  return `<div class="game-slot">
+    <div class="slot-num">Gm ${game.idx+1}</div>
+    <div class="${boxClass}"
+      data-sk="${escHtml(sk)}"
+      data-gidx="${game.idx}"
+      data-dayrow="${dayRow}">
+      <div class="slot-halves">
+        <button class="slot-half${awayPicked}"
+          data-side="${PICK.AWAY}"
+          data-sk="${escHtml(sk)}"
+          data-gidx="${game.idx}"
+          data-dayrow="${dayRow}"
+          style="--tc-r:${awayColor[0]};--tc-g:${awayColor[1]};--tc-b:${awayColor[2]}"
+          ${disabledAttr} aria-label="Pick ${awayAbbr}">
+          <img class="h-logo" src="${logoUrl(series.away.id, series.away.logo)}"
+            width="26" height="26" alt="${awayAbbr}"
+            onerror="this.style.display='none'">
+          <span class="h-abbr">${awayAbbr}</span>
+        </button>
+        <button class="slot-half${homePicked}"
+          data-side="${PICK.HOME}"
+          data-sk="${escHtml(sk)}"
+          data-gidx="${game.idx}"
+          data-dayrow="${dayRow}"
+          style="--tc-r:${homeColor[0]};--tc-g:${homeColor[1]};--tc-b:${homeColor[2]}"
+          ${disabledAttr} aria-label="Pick ${homeAbbr}">
+          <img class="h-logo" src="${logoUrl(series.home.id, series.home.logo)}"
+            width="26" height="26" alt="${homeAbbr}"
+            onerror="this.style.display='none'">
+          <span class="h-abbr">${homeAbbr}</span>
+        </button>
+      </div>
+      ${renderPitcherBar(game)}
+      ${renderTimeBar(game)}
+    </div>
+  </div>`;
+}
+
+/**
+ * Pure function — fully testable, no DOM, no side-effects.
+ * Returns a Map<Game, SlotState> for all games in a row.
+ *
+ * Slot state rules (system-wide, no exceptions):
+ *   Day 1: ALL non-final games open (full series preview pick)
+ *   Day 2+:
+ *     g.idx < dayRow-1 AND final   → isPrefilled (show result)
+ *     g.idx < dayRow-1 AND !final  → isMissed (dimmed forever — missed window)
+ *     g.idx === dayRow-1           → current game (open if rowOpen && not final)
+ *     g.idx > dayRow-1             → isBeyondRow (dimmed — not yet available)
+ *
+ * Missing a day = missing that scoring opportunity. No retroactive picks.
+ */
+function getSlotStates(games, dayRow, rowOpen) {
+  const isDay1 = dayRow === 1;
+  const result = new Map();
+
+  games.forEach(g => {
+    const isPrefilled  = g.isFinal() && (g.idx < dayRow - 1);
+    const isMissed     = !isDay1 && !g.isFinal() && g.idx < dayRow - 1;
+    const isBeyondRow  = !isDay1 && !g.isFinal() && g.idx > dayRow - 1;
+    const isPickable   = rowOpen && !g.isFinal() && !isMissed && !isBeyondRow;
+
+    result.set(g, { isPrefilled, isMissed, isBeyondRow, isPickable });
+  });
+
+  return result;
+}
+
+/**
+ * THE CORE DAILY ROW MECHANIC
+ *
+ * Each unique date in the series = one row.
+ * Row N shows all games in the series.
+ * Slot state is determined by getSlotStates() — keyed by game.idx, not game date.
+ *
+ * Day 1: all games open (full series preview)
+ * Day 2: Game 1 pre-filled, Games 2-4 open
+ * Day 3: Games 1-2 pre-filled, Games 3-4 open
+ * Day 4: Games 1-3 pre-filled, Game 4 open
+ * Past rows: missed slots are permanently dimmed
+ */
+function renderPickRows(series, today, dates){
+  const sk = series.key;
+
+  return dates.map((dateStr, rowIdx) => {
+    const dayRow    = rowIdx + 1;
+    const rowDate   = new Date(dateStr + 'T00:00:00');
+    const isFuture  = rowDate > today;
+    const isPast    = rowDate < today;
+    const isToday   = rowDate.getTime() === today.getTime();
+    const rowLocked = AppState.isRowLocked(sk, dayRow);
+    const rowOpen   = !isFuture && !rowLocked;
+
+    // Compute slot states for all games in this row using pure function.
+    const slotStates = getSlotStates(series.games, dayRow, rowOpen);
+
+    // Row tag
+    let tagClass = 'row-status-tag';
+    let tagText  = '';
+    if(isFuture){
+      tagClass += ' tag-future'; tagText = 'Upcoming';
+    } else if(rowLocked){
+      tagClass += ' tag-locked'; tagText = 'Locked';
+    } else if(isPast && series.games.every(g => g.isFinal())){
+      tagClass += ' tag-played'; tagText = 'Played';
+    } else {
+      tagClass += ' tag-open'; tagText = 'Open';
+    }
+
+    // Row score — sum points for games that are final on this row
+    let rowScoreHtml = '';
+    if(!isFuture){
+      let rowPts = 0;
+      series.games.forEach(g => {
+        if(!g.isFinal()) return;
+        const dp = {};
+        for(let d = 1; d <= dayRow; d++){
+          const p = AppState.getPick(sk, g.idx, d);
+          if(p) dp[d] = p;
+        }
+        rowPts += scoreGame(g, dp, g.idx).pts;
+      });
+      if(rowPts !== 0) rowScoreHtml = `<span class="row-score">${rowPts > 0 ? '+' : ''}${rowPts}pts</span>`;
+    }
+
+    // Open pickable = games that can actually be picked on this row
+    const openPickable = rowOpen
+      ? series.games.filter(g => slotStates.get(g).isPickable)
+      : [];
+    const allOpenPicked = openPickable.length > 0 &&
+      openPickable.every(g => AppState.getPick(sk, g.idx, dayRow));
+
+    // Lock button
+    let lockHtml = '';
+    if(!isFuture){
+      if(rowLocked){
+        lockHtml = `<div class="row-lock-wrap">
+          <button class="lock-btn is-locked" data-sk="${escHtml(sk)}" data-dayrow="${dayRow}">
+            <span class="lock-indicator"></span>Day ${dayRow} Locked
+          </button></div>`;
+      } else if(openPickable.length > 0){
+        lockHtml = `<div class="row-lock-wrap">
+          <button class="lock-btn" data-sk="${escHtml(sk)}" data-dayrow="${dayRow}"
+            data-action="lock" ${!allOpenPicked ? 'disabled' : ''}>
+            Lock Day ${dayRow} Picks
+          </button></div>`;
+      }
+    }
+
+    const labelClass = isToday ? 'row-day-label is-today' : 'row-day-label';
+    const dayLabel = new Date(dateStr + 'T12:00:00')
+      .toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+
+    // Every row renders ALL games in series order.
+    const sortedSlots = series.games.map(g => {
+      const st = slotStates.get(g);
+      return renderGameSlot({
+        game:         g,
+        series,
+        dayRow,
+        today,
+        isPrefilled:  st.isPrefilled,
+        isMissed:     st.isMissed,
+        isBeyondRow:  st.isBeyondRow,
+        isPickable:   st.isPickable,
+        rowLocked,
+        rowOpen,
+      });
+    });
+
+    return `<div class="pick-row" data-sk="${escHtml(sk)}" data-dayrow="${dayRow}">
+      <div class="row-header">
+        <span class="${labelClass}">Day ${dayRow} · ${escHtml(dayLabel)}</span>
+        <div class="row-divider"></div>
+        ${rowScoreHtml}
+        <span class="${tagClass}">${tagText}</span>
+      </div>
+      <div class="row-slots">${sortedSlots.join('')}</div>
+      ${lockHtml}
+    </div>`;
+  }).join('');
+}
+
+// Accepts precomputed score to avoid triple-calling computeSeriesScore per render.
+function renderScoreBreakdown(allBreakdown){
+  if(!allBreakdown.length)return'';
+  return`<div class="score-breakdown">
+    ${allBreakdown.map(b=>`
+      <div class="score-row">
+        <span class="score-row-label">${escHtml(b.label)}</span>
+        <span class="score-row-val${b.pts<0?' neg':''}">${b.pts>0?'+':''}${b.pts}</span>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderCardFooter(outcome, total){
+  const outcomeClass = outcome?.type === 'sweep' ? ' is-sweep'
+    : outcome?.type === 'split' ? ' is-split'
+    : outcome?.type === 'win'   ? ' is-win'
+    : '';
+  const outcomeHtml = outcome
+    ? `<span class="outcome-label">Series</span>
+       <span class="outcome-value${outcomeClass}">${escHtml(outcome.label)}</span>`
+    : `<span class="outcome-label">In Progress</span><span class="outcome-value">—</span>`;
+
+  const scorePart = total!==0
+    ? `<span class="card-total-score">${total>0?'+':''}${total}pts</span>`
+    : '';
+
+  return`<div class="card-footer">${outcomeHtml}${scorePart}</div>`;
+}
+
+function renderSeriesCard(series, today){
+  const sk      = series.key;
+  const awayRec = ApiCache.records[series.away.id]||'—';
+  const homeRec = ApiCache.records[series.home.id]||'—';
+
+  // Compute once — passed to all sub-renderers that need it
+  const score     = computeSeriesScore(series, AppState);
+  const outcome   = series.outcome();
+  const dates     = series.seriesDates();  // memoize for this render pass
+  const anyLocked = dates.some((_,i)=>AppState.isRowLocked(sk,i+1));
+
+  return`<div class="series-card${anyLocked?' is-locked':''}" data-sk="${escHtml(sk)}">
+
+    <div class="card-topbar">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span class="series-badge">${series.totalGames}-Game Series</span>
+        <span class="series-venue">${escHtml(series.venue)}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${score.total!==0?`<div class="card-score-badge">
+          <span class="badge-label">Pts</span>
+          <span class="badge-val">${score.total>0?'+':''}${score.total}</span>
+        </div>`:''}
+        <span class="series-daterange">${escHtml(series.dateRange())}</span>
+      </div>
+    </div>
+
+    <div class="teams-row">
+      <div class="team-side away">
+        ${renderTeamLogo(series.away)}
+        <div class="team-name">${escHtml(series.away.abbr||teamAbbr(series.away.name))}</div>
+        <div class="team-record">${escHtml(awayRec)}</div>
+      </div>
+      <div class="at-divider">at</div>
+      <div class="team-side home">
+        ${renderTeamLogo(series.home)}
+        <div class="team-name">${escHtml(series.home.abbr||teamAbbr(series.home.name))}</div>
+        <div class="team-record">${escHtml(homeRec)}</div>
+      </div>
+    </div>
+
+    <div class="pick-rows">
+      ${renderPickRows(series, today, dates)}
+    </div>
+
+    ${renderScoreBreakdown(score.allBreakdown)}
+    ${renderCardFooter(outcome, score.total)}
+
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   GLOBAL STATS
+═══════════════════════════════════════════ */
+
+/**
+ * Pure function — no DOM, fully testable.
+ * Returns { correct, wrong, pending, totalScore, pct }
+ */
+function computeWeekStats(series){
+  let correct=0, wrong=0, pending=0, totalScore=0;
+
+  series.forEach(s=>{
+    const {total} = computeSeriesScore(s, AppState);
+    totalScore += total;
+    const dates = s.seriesDates();
+    s.games.forEach(g=>{
+      if(g.isFinal()){
+        let hadCorrect=false, hadPick=false;
+        dates.forEach((_,i)=>{
+          const p=AppState.getPick(s.key,g.idx,i+1);
+          if(p){ hadPick=true; if(g.evaluate(p)==='correct') hadCorrect=true; }
+        });
+        if(hadCorrect) correct++;
+        else wrong++;  // counts both wrong-pick and no-pick as wrong
+      } else if(!g.isPostponed()){
+        pending++;
+      }
+    });
+  });
+
+  const total=correct+wrong;
+  const pct=total>0?Math.round((correct/total)*100):null;
+  return{ correct, wrong, pending, totalScore, pct };
+}
+
+function updateStatsUI(){
+  const { correct, wrong, pending, totalScore, pct } = computeWeekStats(ApiCache.series);
+  const pctStr = pct!=null?`${pct}%`:'—';
+
+  document.getElementById('statScore').textContent=totalScore;
+  document.getElementById('statCorrect').textContent=correct;
+  document.getElementById('statPending').textContent=pending;
+  document.getElementById('statRate').textContent=pctStr;
+  document.getElementById('accFill').style.width=pct!=null?`${pct}%`:'0%';
+  document.getElementById('headerScore').textContent=totalScore||'—';
+}
+
+/* ═══════════════════════════════════════════
+   GRID RENDER
+═══════════════════════════════════════════ */
+function seriesSortKey(s, today){
+  // Returns sort priority: 0=completed, 1=active today, 2=upcoming
+  const todayStr = toDateStr(today);
+  const allFinal = s.games.every(g => g.isFinal());
+  if(allFinal) return 0;
+  const hasGameToday = s.games.some(g => g.date === todayStr);
+  if(hasGameToday) return 1;
+  return 2;
+}
+
+function renderGrid(){
+  const today  = todayMidnight();
+  const series = [...ApiCache.series].sort((a, b) => {
+    const ka = seriesSortKey(a, today);
+    const kb = seriesSortKey(b, today);
+    if(ka !== kb) return ka - kb;
+    // Within same group: completed → most recent first, others → earliest first
+    return ka === 0
+      ? b.startDate() - a.startDate()
+      : a.startDate() - b.startDate();
+  });
+  const grid   = document.getElementById('seriesGrid');
+
+  if(!series.length){
+    grid.innerHTML=`<div class="empty-state">
+      <div class="state-title">No Active Series This Week</div>
+      <div class="state-body">Check back when games are scheduled.</div>
+    </div>`;
+    return;
+  }
+
+  document.getElementById('seriesCount').textContent=`${series.length} series`;
+  grid.innerHTML=series.map(s=>renderSeriesCard(s,today)).join('');
+  updateStatsUI();
+}
+
+function rerenderCard(sk){
+  const series=ApiCache.series.find(s=>s.key===sk);
+  if(!series)return;
+  const today=todayMidnight();
+  const existing=document.querySelector(`.series-card[data-sk="${sk}"]`);
+  if(!existing)return;
+  const tmp=document.createElement('div');
+  tmp.innerHTML=renderSeriesCard(series,today);
+  const newCard=tmp.firstElementChild;
+  existing.replaceWith(newCard);
+  updateStatsUI();
+  attachHandlers(newCard);
+}
+
+/* ═══════════════════════════════════════════
+   EVENT HANDLERS — scoped, no leaks
+═══════════════════════════════════════════ */
+function attachHandlers(container){
+  if(!container)return;
+
+  // Pick buttons
+  container.querySelectorAll('.slot-half:not([disabled])').forEach(btn=>{
+    btn.addEventListener('click', onPickClick);
+  });
+
+  // Lock buttons
+  container.querySelectorAll('.lock-btn[data-action="lock"]').forEach(btn=>{
+    btn.addEventListener('click', onLockClick, {once:true});
+  });
+}
+
+function onPickClick(e){
+  const btn    = e.currentTarget;
+  const sk     = btn.dataset.sk;
+  const gameIdx= parseInt(btn.dataset.gidx);
+  const dayRow = parseInt(btn.dataset.dayrow);
+  const side   = btn.dataset.side;
+  if(!sk||isNaN(gameIdx)||isNaN(dayRow)||!side)return;
+  if(AppState.isRowLocked(sk,dayRow))return;
+
+  AppState.setPick(sk,gameIdx,dayRow,side);
+
+  // Flash animation
+  btn.classList.add('flash-pick');
+  btn.addEventListener('animationend',()=>btn.classList.remove('flash-pick'),{once:true});
+
+  rerenderCard(sk);
+}
+
+function onLockClick(e){
+  const btn    = e.currentTarget;
+  const sk     = btn.dataset.sk;
+  const dayRow = parseInt(btn.dataset.dayrow);
+  if(!sk||isNaN(dayRow))return;
+
+  btn.classList.add('locking');
+  btn.addEventListener('animationend',()=>{
+    AppState.lockRow(sk,dayRow);
+    rerenderCard(sk);
+  },{once:true});
+}
+
+function attachAllHandlers(){
+  document.querySelectorAll('.series-card').forEach(card=>attachHandlers(card));
+}
+
+/* ═══════════════════════════════════════════
+   UI FEEDBACK HELPERS
+═══════════════════════════════════════════ */
+function showLoadingStep(msg) {
+  const el = document.querySelector('.loading-label');
+  if (el) el.textContent = msg;
+  console.log('[Diamond]', msg);
+}
+
+function showError(msg) {
+  console.error('[Diamond] ERROR:', msg);
+  document.getElementById('seriesGrid').innerHTML = `
+    <div class="error-state">
+      <div class="state-title">Could Not Load Schedule</div>
+      <div class="state-body">
+        ${escHtml(msg)}<br><br>
+        <button class="retry-btn" onclick="retryInit()">Retry</button>
+      </div>
+    </div>`;
+}
+
+function retryInit() {
+  document.getElementById('seriesGrid').innerHTML = `
+    <div class="loading-state">
+      <div class="loading-bar-wrap"></div>
+      <div class="loading-label">Retrying...</div>
+    </div>`;
+  init();
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+async function init(){
+  AppState.load();
+
+  const now   = new Date();
+  const range = weekRange(now);
+
+  document.getElementById('weekRange').textContent =
+    `Week of ${fmtWeekRange(range.start, range.end)}`;
+
+  // Fetch exactly the display week — Mon through Sun.
+  // Series that started prior week are not surfaced; ESPN groups by event date.
+  const fetchStart = range.start;
+  const fetchEnd   = range.end;
+
+  // Step 1 — fetch schedule
+  let dates;
+  try {
+    showLoadingStep('Fetching schedule...');
+    dates = await DataSource.fetchSchedule(toDateStr(fetchStart), toDateStr(fetchEnd));
+    console.log('[Diamond] Schedule OK —', dates.length, 'date(s)');
+  } catch(err) {
+    showError(`Schedule fetch failed: ${err.message}`);
+    return;
+  }
+
+  // Step 2 — fetch standings
+  let records;
+  try {
+    showLoadingStep('Fetching standings...');
+    records = await DataSource.fetchStandings();
+    console.log('[Diamond] Standings OK —', Object.keys(records).length, 'teams');
+  } catch(err) {
+    // Standings failure is non-fatal — show records as dashes
+    console.warn('[Diamond] Standings failed, continuing without records:', err.message);
+    records = {};
+  }
+
+  // Step 3 — parse series
+  try {
+    showLoadingStep('Building series...');
+    ApiCache.records = records;
+    ApiCache.series  = parseDatesIntoSeries(dates, range.start, range.end);
+    console.log('[Diamond] Series parsed —', ApiCache.series.length, 'series');
+  } catch(err) {
+    showError(`Failed to parse schedule data: ${err.message}`);
+    return;
+  }
+
+  // Step 4 — render
+  try {
+    showLoadingStep('Rendering...');
+    renderGrid();
+    attachAllHandlers();
+  } catch(err) {
+    showError(`Render failed: ${err.message}`);
+    console.error('[Diamond] Render stack:', err.stack);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   MIDNIGHT ROLLOVER
+   visibilitychange-first, setInterval fallback
+═══════════════════════════════════════════ */
+let _lastDate = toDateStr(new Date());
+
+function checkRollover(){
+  const today=toDateStr(new Date());
+  if(today!==_lastDate){_lastDate=today;init();}
+}
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')checkRollover();
+});
+setInterval(checkRollover, 5*60*1000);
+
+init();
+
+/* ═══════════════════════════════════════════
+   EXPERT AUDIT — inline test suite
+   Runs silently in console. Check DevTools for results.
+   Tests pure functions only — no DOM, no API.
+═══════════════════════════════════════════ */
+(function runAudit(){
+  const pass=[];const fail=[];
+  function assert(label,cond){cond?pass.push(label):fail.push(label);}
+
+  // ── Helper: build a minimal final Game
+  function mkGame(idx,awayWin){
+    return new Game({
+      gameId:idx,date:'2026-05-29',
+      dateObj:new Date('2026-05-29T12:00:00'),
+      time:'2026-05-29T18:00:00Z',
+      status:GAME_STATUS.FINAL,
+      statusDetail:'Final',
+      awayScore:awayWin?5:2,homeScore:awayWin?2:5,
+      awayWin,homeWin:!awayWin,
+      awayPitcher:'J. Gausman',homePitcher:'C. Burnes',
+    },idx);
+  }
+
+  // ── 1. Game.evaluate
+  const g0=mkGame(0,true);
+  assert('evaluate correct away pick', g0.evaluate(PICK.AWAY)==='correct');
+  assert('evaluate wrong home pick',   g0.evaluate(PICK.HOME)==='wrong');
+  assert('evaluate null pick',         g0.evaluate(null)===null);
+
+  // ── 2. Game.winnerSide
+  assert('winnerSide away', g0.winnerSide()===PICK.AWAY);
+  const g0h=mkGame(0,false);
+  assert('winnerSide home', g0h.winnerSide()===PICK.HOME);
+
+  // ── 3. scoreGame — Day 1 correct, held all 4 days
+  const g1=mkGame(0,true);
+  const dp_held={1:PICK.AWAY,2:PICK.AWAY,3:PICK.AWAY,4:PICK.AWAY};
+  const {pts:pts_held}=scoreGame(g1,dp_held,0);
+  assert('Day1 correct + 3-day streak = 30+15=45', pts_held===45);
+
+  // ── 4. scoreGame — Day 2 correct, no streak
+  const dp_d2={2:PICK.AWAY};
+  const {pts:pts_d2}=scoreGame(g1,dp_d2,0);
+  assert('Day2 correct = 20pts', pts_d2===20);
+
+  // ── 5. scoreGame — Day 1 correct, held 1 extra day
+  const dp_streak1={1:PICK.AWAY,2:PICK.AWAY};
+  const {pts:pts_s1}=scoreGame(g1,dp_streak1,0);
+  assert('Day1 correct + 1-day streak = 30+5=35', pts_s1===35);
+
+  // ── 6. scoreGame — switch and wrong
+  const g2=mkGame(0,false); // home wins
+  const dp_switch={1:PICK.HOME,2:PICK.AWAY}; // switched to away, away loses
+  const {pts:pts_sw}=scoreGame(g2,dp_switch,0);
+  assert('Switch & wrong = -5pts', pts_sw===SWITCH_WRONG_PTS);
+
+  // ── 7. scoreGame — wrong from Day 1, no switch, no penalty
+  const dp_wrong={1:PICK.AWAY}; // away, but home won
+  const {pts:pts_wr}=scoreGame(g2,dp_wrong,0);
+  assert('Wrong Day1 no switch = 0pts', pts_wr===0);
+
+  // ── 8. scoreGame — Day 4 correct
+  const dp_d4={4:PICK.AWAY};
+  const {pts:pts_d4}=scoreGame(g1,dp_d4,0);
+  assert('Day4 correct = 10pts', pts_d4===10);
+
+  // ── 9. weekRange — Monday anchor
+  const mon=new Date('2026-05-25T12:00:00'); // Monday
+  const wr=weekRange(mon);
+  assert('weekRange start is Monday', toDateStr(wr.start)==='2026-05-25');
+  assert('weekRange end is Sunday',   toDateStr(wr.end)==='2026-05-31');
+
+  // ── 10. weekRange — Sunday anchor
+  const sun=new Date('2026-05-31T12:00:00');
+  const wr2=weekRange(sun);
+  assert('weekRange from Sunday gives correct Monday', toDateStr(wr2.start)==='2026-05-25');
+
+  // ── 11. teamAbbr known team
+  assert('teamAbbr Phillies=PHI', teamAbbr('Philadelphia Phillies')==='PHI');
+  assert('teamAbbr Blue Jays=TOR', teamAbbr('Toronto Blue Jays')==='TOR');
+
+  // ── 12. escHtml
+  assert('escHtml XSS', escHtml('<script>')!=='<script>');
+  assert('escHtml ampersand', escHtml('a & b')==='a &amp; b');
+
+  // ── 13. seriesKey
+  assert('seriesKey format', seriesKey(141,110)==='141_110');
+
+  // ── 14. pickKey
+  assert('pickKey format', pickKey('141_110',0,1)==='141_110_g0_d1');
+
+  // ── 15. scoreSeriesOutcome — sweep called correctly on Day 1
+  function mkSeries4(awayWins){
+    // awayWins: array of 4 booleans [g1,g2,g3,g4]
+    const games = awayWins.map((aw,i)=>mkGame(i,aw));
+    return new Series({
+      key:'test_series',
+      away:{id:141,name:'Toronto Blue Jays'},
+      home:{id:110,name:'Baltimore Orioles'},
+      venue:'Camden Yards',
+      games,
+      totalGames:4,
+    });
+  }
+
+  // BAL sweeps (all home wins), Day 1 picks all HOME correctly
+  const sweepSeries = mkSeries4([false,false,false,false]);
+  const sweepPicks = { 0:{1:PICK.HOME}, 1:{1:PICK.HOME}, 2:{1:PICK.HOME}, 3:{1:PICK.HOME} };
+  const {pts:swPts} = scoreSeriesOutcome(sweepSeries, sweepPicks);
+  assert('Sweep called correctly = +40pts', swPts===OUTCOME_BONUS.SWEEP_CORRECT);
+
+  // BAL sweeps but user picked TOR sweep — wrong team
+  const sweepWrongPicks = { 0:{1:PICK.AWAY}, 1:{1:PICK.AWAY}, 2:{1:PICK.AWAY}, 3:{1:PICK.AWAY} };
+  const {pts:swWrongPts} = scoreSeriesOutcome(sweepSeries, sweepWrongPicks);
+  assert('Sweep wrong team = 0pts', swWrongPts===0);
+
+  // Split series (2-2), user called split on Day 1
+  const splitSeries = mkSeries4([true,false,true,false]);
+  const splitPicks = { 0:{1:PICK.AWAY}, 1:{1:PICK.HOME}, 2:{1:PICK.AWAY}, 3:{1:PICK.HOME} };
+  const {pts:splitPts} = scoreSeriesOutcome(splitSeries, splitPicks);
+  assert('Split called correctly = +30pts', splitPts===OUTCOME_BONUS.SPLIT_CORRECT);
+
+  // 3-1 series (BAL wins 3), user called 3-1 BAL correctly
+  const win31Series = mkSeries4([false,false,true,false]);
+  const win31Picks = { 0:{1:PICK.HOME}, 1:{1:PICK.HOME}, 2:{1:PICK.AWAY}, 3:{1:PICK.HOME} };
+  const {pts:w31Pts} = scoreSeriesOutcome(win31Series, win31Picks);
+  assert('3-1 right team = +25pts', w31Pts===OUTCOME_BONUS.WIN_3_1_CORRECT_TEAM);
+
+  // 3-1 series (BAL wins 3), user called 3-1 but picked TOR — wrong team
+  const win31WrongPicks = { 0:{1:PICK.AWAY}, 1:{1:PICK.AWAY}, 2:{1:PICK.HOME}, 3:{1:PICK.AWAY} };
+  const {pts:w31WPts} = scoreSeriesOutcome(win31Series, win31WrongPicks);
+  assert('3-1 wrong team = +10pts', w31WPts===OUTCOME_BONUS.WIN_3_1_WRONG_TEAM);
+
+  // ── 16. computeWeekStats — pure function returns correct shape
+  const emptyStats = computeWeekStats([]);
+  assert('computeWeekStats empty = zero correct', emptyStats.correct===0);
+  assert('computeWeekStats empty = zero pending', emptyStats.pending===0);
+  assert('computeWeekStats empty = null pct', emptyStats.pct===null);
+
+  // ── 17. espnTeamObj — NaN guard
+  const mockComp = { team: { id: '22', displayName: 'Toronto Blue Jays', abbreviation: 'TOR', logo: 'http://logo.png' } };
+  const teamObj = espnTeamObj(mockComp);
+  assert('espnTeamObj id is number',   typeof teamObj.id === 'number' && !isNaN(teamObj.id));
+  assert('espnTeamObj id parsed',      teamObj.id === 22);
+  assert('espnTeamObj abbr',           teamObj.abbr === 'TOR');
+
+  const missingId = espnTeamObj({ team: {} });
+  assert('espnTeamObj missing id = 0', missingId.id === 0);
+
+  // ── 18. espnStatusToCode mapping
+  assert('espnStatus pre → PREVIEW',   espnStatusToCode('pre')       === GAME_STATUS.PREVIEW);
+  assert('espnStatus in → LIVE',       espnStatusToCode('in')        === GAME_STATUS.LIVE);
+  assert('espnStatus post → FINAL',    espnStatusToCode('post')      === GAME_STATUS.FINAL);
+  assert('espnStatus unknown → PREVIEW', espnStatusToCode('unknown') === GAME_STATUS.PREVIEW);
+
+  // ── 19. score zero-zero game uses nullish coalescing correctly
+  // parseFloat('0') ?? 0 should be 0, not falsy-replaced
+  const zeroScore = parseFloat('0') ?? 0;
+  assert('zero score preserved (nullish)', zeroScore === 0);
+  // Confirm old || 0 bug: parseFloat('0') || 0 is also 0 but for wrong reason
+  // The fix ensures explicit null/undefined → 0, not falsy → 0
+  const nullScore = parseFloat(null) ?? 0;
+  assert('null score → 0 via nullish',  nullScore === 0);
+
+  // ── 20. seriesKey with ESPN-style ids
+  assert('seriesKey ESPN ids', seriesKey(22, 3) === '22_3');
+
+  // ── 21. getSlotStates — Day 1 all open
+  function mkPreviewGame(idx) {
+    return new Game({
+      gameId:idx, date:'2026-06-02',
+      dateObj:new Date('2026-06-02T12:00:00'),
+      time:'2026-06-02T18:00:00Z',
+      status:GAME_STATUS.PREVIEW,
+      statusDetail:'Preview',
+      awayScore:null, homeScore:null,
+      awayWin:false, homeWin:false,
+      awayPitcher:null, homePitcher:null,
+    }, idx);
+  }
+  const previewGames = [mkPreviewGame(0), mkPreviewGame(1), mkPreviewGame(2), mkPreviewGame(3)];
+  const day1States = getSlotStates(previewGames, 1, true);
+  assert('Day1: Game1 pickable',       day1States.get(previewGames[0]).isPickable === true);
+  assert('Day1: Game2 pickable',       day1States.get(previewGames[1]).isPickable === true);
+  assert('Day1: Game4 pickable',       day1States.get(previewGames[3]).isPickable === true);
+  assert('Day1: nothing missed',       [...day1States.values()].every(s => !s.isMissed));
+  assert('Day1: nothing beyondRow',    [...day1States.values()].every(s => !s.isBeyondRow));
+
+  // ── 22. getSlotStates — Day 2, Game1 final, Games 2-4 open
+  const finalG0 = mkGame(0, true);  // Game 1 final
+  const prevG1  = mkPreviewGame(1);
+  const prevG2  = mkPreviewGame(2);
+  const prevG3  = mkPreviewGame(3);
+  const day2States = getSlotStates([finalG0, prevG1, prevG2, prevG3], 2, true);
+  assert('Day2: Game1 prefilled',      day2States.get(finalG0).isPrefilled === true);
+  assert('Day2: Game1 not pickable',   day2States.get(finalG0).isPickable  === false);
+  assert('Day2: Game2 pickable',       day2States.get(prevG1).isPickable   === true);
+  assert('Day2: Game3 beyondRow',      day2States.get(prevG2).isBeyondRow  === true);
+  assert('Day2: Game4 beyondRow',      day2States.get(prevG3).isBeyondRow  === true);
+
+  // ── 23. getSlotStates — Day 3, Games 1-2 final, Game3 current, Game4 beyond
+  const finalG1 = mkGame(1, false); // Game 2 final
+  const prevG2b = mkPreviewGame(2);
+  const prevG3b = mkPreviewGame(3);
+  const day3States = getSlotStates([finalG0, finalG1, prevG2b, prevG3b], 3, true);
+  assert('Day3: Game2 prefilled',      day3States.get(finalG1).isPrefilled === true);
+  assert('Day3: Game3 pickable',       day3States.get(prevG2b).isPickable  === true);
+  assert('Day3: Game4 beyondRow',      day3States.get(prevG3b).isBeyondRow === true);
+
+  // ── 24. getSlotStates — missed slot (past row, game not final)
+  const missedG = mkPreviewGame(0);
+  const day2MissedStates = getSlotStates([missedG, mkPreviewGame(1)], 2, false);
+  assert('Past row: Game1 missed',     day2MissedStates.get(missedG).isMissed   === true);
+  assert('Past row: Game1 not pickable', day2MissedStates.get(missedG).isPickable === false);
+
+  // ── 25. seriesSortKey
+  const today25 = new Date('2026-05-28T00:00:00');
+  function mkSeriesForSort(dates, allFinal) {
+    const games = dates.map((d,i) => new Game({
+      gameId:i, date:d, dateObj:new Date(d+'T12:00:00'), time:null,
+      status: allFinal ? GAME_STATUS.FINAL : GAME_STATUS.PREVIEW,
+      statusDetail:'', awayScore:allFinal?5:null, homeScore:allFinal?2:null,
+      awayWin:allFinal, homeWin:false, awayPitcher:null, homePitcher:null,
+    }, i));
+    return new Series({ key:'sk', away:{id:1,name:'A',abbr:'A',logo:''}, home:{id:2,name:'B',abbr:'B',logo:''}, venue:'', games, totalGames:games.length });
+  }
+  const completedS = mkSeriesForSort(['2026-05-25','2026-05-26','2026-05-27'], true);
+  const activeS    = mkSeriesForSort(['2026-05-28','2026-05-29','2026-05-30'], false);
+  const upcomingS  = mkSeriesForSort(['2026-05-29','2026-05-30','2026-05-31'], false);
+  assert('seriesSortKey completed = 0', seriesSortKey(completedS, today25) === 0);
+  assert('seriesSortKey active = 1',    seriesSortKey(activeS, today25)    === 1);
+  assert('seriesSortKey upcoming = 2',  seriesSortKey(upcomingS, today25)  === 2);
+
+  // ── 26. safeScore — NaN guard
+  const safeScore = (s) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
+  assert('safeScore null → 0',      safeScore(null)      === 0);
+  assert('safeScore undefined → 0', safeScore(undefined) === 0);
+  assert('safeScore 0 → 0',         safeScore('0')       === 0);
+  assert('safeScore 5 → 5',         safeScore('5')       === 5);
+  assert('safeScore NaN str → 0',   safeScore('abc')     === 0);
+
+  // ── 27. scoreSeriesOutcome — 3-game 2-1 correct team gets bonus
+  function mk3GameSeries(awayWins) {
+    const games = awayWins.map((aw,i) => mkGame3(i, aw));
+    return new Series({
+      key:'s3test',
+      away:{id:1,name:'Washington Nationals',abbr:'WSH',logo:''},
+      home:{id:2,name:'Cleveland Guardians',abbr:'CLE',logo:''},
+      venue:'Progressive Field', games, totalGames:3,
+    });
+  }
+  // WSH wins 2-1, Day 1 predicted WSH to win 2-1 correctly
+  const s3win = mk3GameSeries([true, true, false]);
+  const s3picks_correct = { 0:{1:PICK.AWAY}, 1:{1:PICK.AWAY}, 2:{1:PICK.HOME} };
+  const {pts:s3correctPts} = scoreSeriesOutcome(s3win, s3picks_correct);
+  assert('3-game 2-1 correct team = +20pts', s3correctPts === OUTCOME_BONUS.WIN_2_1_CORRECT_TEAM);
+
+  // WSH wins 2-1 but user predicted CLE to win 2-1 — wrong team
+  const s3picks_wrong = { 0:{1:PICK.HOME}, 1:{1:PICK.HOME}, 2:{1:PICK.AWAY} };
+  const {pts:s3wrongPts} = scoreSeriesOutcome(s3win, s3picks_wrong);
+  assert('3-game 2-1 wrong team = +8pts', s3wrongPts === OUTCOME_BONUS.WIN_2_1_WRONG_TEAM);
+
+  // 3-game sweep — should still give SWEEP_CORRECT bonus
+  const s3sweep = mk3GameSeries([true, true, true]);
+  const s3sweepPicks = { 0:{1:PICK.AWAY}, 1:{1:PICK.AWAY}, 2:{1:PICK.AWAY} };
+  const {pts:s3sweepPts} = scoreSeriesOutcome(s3sweep, s3sweepPicks);
+  assert('3-game sweep correct = +40pts', s3sweepPts === OUTCOME_BONUS.SWEEP_CORRECT);
+
+  // ── 28. Series.outcome() — 2-1 is a win not a split
+  const win21Series = mkSeries4([true,true,false,false]); // away wins 2, home wins 2? No—
+  // Build a 3-game series: away wins games 1,2; home wins game 3
+  function mkGame3(idx, awayWin){
+    // Use fixed dates starting May 25 — avoids fragile string concat bugs
+    const dates = ['2026-05-25','2026-05-26','2026-05-27','2026-05-28','2026-05-29'];
+    const d = dates[idx] || '2026-05-29';
+    return new Game({
+      gameId:idx, date:d,
+      dateObj:new Date(d+'T12:00:00'),
+      time:null, status:GAME_STATUS.FINAL, statusDetail:'Final',
+      awayScore:awayWin?5:2, homeScore:awayWin?2:5,
+      awayWin, homeWin:!awayWin, awayPitcher:null, homePitcher:null,
+    }, idx);
+  }
+  const s3 = new Series({
+    key:'s3', away:{id:1,name:'Washington Nationals',abbr:'WSH',logo:''},
+    home:{id:2,name:'Cleveland Guardians',abbr:'CLE',logo:''},
+    venue:'Progressive Field', games:[mkGame3(0,true),mkGame3(1,true),mkGame3(2,false)], totalGames:3,
+  });
+  const o21 = s3.outcome();
+  assert('2-1 series is win not split', o21.type === 'win');
+  assert('2-1 winner label is WSH',     o21.label.includes('WSH'));
+  assert('2-1 label includes Win Series 2-1', o21.label.includes('2-1'));
+
+  // A 2-2 split in a 4-game series IS a split
+  const split22 = mkSeries4([true,false,true,false]);
+  const o22 = split22.outcome();
+  assert('2-2 in 4-game IS a split', o22.type === 'split');
+
+  // A 1-1 in a 2-game series IS a split
+  const s2 = new Series({
+    key:'s2', away:{id:1,name:'A',abbr:'A',logo:''}, home:{id:2,name:'B',abbr:'B',logo:''},
+    venue:'', games:[mkGame3(0,true),mkGame3(1,false)], totalGames:2,
+  });
+  assert('1-1 in 2-game IS a split', s2.outcome().type === 'split');
+
+  // ── Results
+  const total = pass.length + fail.length;
+  if(fail.length === 0){
+    console.log('%c✓ Diamond Audit: ' + pass.length + '/' + total + ' tests passed', 'color:#22c55e;font-weight:bold;font-size:13px');
+  } else {
+    console.warn('%c✗ Diamond Audit: ' + fail.length + ' FAILED of ' + total, 'color:#ef4444;font-weight:bold;font-size:13px');
+    fail.forEach(f => console.error(' FAIL:', f));
+  }
+  pass.forEach(p => console.log(' ✓', p));
+})();
+</script>
+</body>
+</html>
