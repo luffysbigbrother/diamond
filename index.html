@@ -564,6 +564,33 @@ main{
 'use strict';
 
 /* ═══════════════════════════════════════════
+   VERSION & CACHE BUSTING
+   Bump APP_VERSION with every upload to GitHub.
+   Format: 'YYYY.MM.DD.build' — e.g. increment
+   the last number for same-day releases.
+═══════════════════════════════════════════ */
+const APP_VERSION  = '2026.05.27.1';
+const VERSION_KEY  = 'diamond_version';
+
+function bustCache() {
+  try {
+    const stored = localStorage.getItem(VERSION_KEY);
+    if (stored !== APP_VERSION) {
+      // New version detected — stamp it then hard reload once
+      localStorage.setItem(VERSION_KEY, APP_VERSION);
+      if (stored !== null) {
+        // Only reload if there was a previous version (not first launch)
+        window.location.reload(true);
+      }
+    }
+  } catch {
+    // localStorage blocked — continue normally
+  }
+}
+
+bustCache();
+
+/* ═══════════════════════════════════════════
    CONSTANTS
 ═══════════════════════════════════════════ */
 const MLB_API     = 'https://statsapi.mlb.com/api/v1';
