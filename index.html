@@ -577,7 +577,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.27.3';
+const APP_VERSION  = '2026.05.27.4';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -1589,41 +1589,78 @@ function attachAllHandlers(){
 /* ═══════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════ */
+function showLoadingStep(msg) {
+  const el = document.querySelector('.loading-label');
+  if (el) el.textContent = msg;
+  console.log('[Diamond]', msg);
+}
+
+function showError(msg) {
+  console.error('[Diamond] ERROR:', msg);
+  document.getElementById('seriesGrid').innerHTML = `
+    <div class="error-state">
+      <div class="state-title">Could Not Load Schedule</div>
+      <div class="state-body">
+        ${escHtml(msg)}<br><br>
+        <button class="retry-btn" onclick="retryInit()">Retry</button>
+      </div>
+    </div>`;
+}
+
 async function init(){
   AppState.load();
 
   const now   = new Date();
   const range = weekRange(now);
 
-  document.getElementById('weekRange').textContent=
-    `Week of ${fmtWeekRange(range.start,range.end)}`;
+  document.getElementById('weekRange').textContent =
+    `Week of ${fmtWeekRange(range.start, range.end)}`;
 
-  // Fetch window: Mon-3 days → Sun
-  // Catches series that started mid-prior-week bleeding into this week
-  const fetchStart = shiftDays(range.start,-3);
+  const fetchStart = shiftDays(range.start, -3);
   const fetchEnd   = range.end;
 
-  try{
-    const [dates,records]=await Promise.all([
-      DataSource.fetchSchedule(toDateStr(fetchStart),toDateStr(fetchEnd)),
-      DataSource.fetchStandings(now.getFullYear()),
-    ]);
+  // Step 1 — fetch schedule
+  let dates;
+  try {
+    showLoadingStep('Fetching schedule...');
+    dates = await DataSource.fetchSchedule(toDateStr(fetchStart), toDateStr(fetchEnd));
+    console.log('[Diamond] Schedule OK —', dates.length, 'date(s)');
+  } catch(err) {
+    showError(`Schedule fetch failed: ${err.message}`);
+    return;
+  }
 
+  // Step 2 — fetch standings
+  let records;
+  try {
+    showLoadingStep('Fetching standings...');
+    records = await DataSource.fetchStandings(now.getFullYear());
+    console.log('[Diamond] Standings OK —', Object.keys(records).length, 'teams');
+  } catch(err) {
+    // Standings failure is non-fatal — show records as dashes
+    console.warn('[Diamond] Standings failed, continuing without records:', err.message);
+    records = {};
+  }
+
+  // Step 3 — parse series
+  try {
+    showLoadingStep('Building series...');
     ApiCache.records = records;
     ApiCache.series  = parseDatesIntoSeries(dates, range.start, range.end);
+    console.log('[Diamond] Series parsed —', ApiCache.series.length, 'series');
+  } catch(err) {
+    showError(`Failed to parse schedule data: ${err.message}`);
+    return;
+  }
 
+  // Step 4 — render
+  try {
+    showLoadingStep('Rendering...');
     renderGrid();
     attachAllHandlers();
   } catch(err) {
-    console.error('[Diamond]', err);
-    document.getElementById('seriesGrid').innerHTML = `
-      <div class="error-state">
-        <div class="state-title">Could Not Load Schedule</div>
-        <div class="state-body">
-          ${escHtml(err.message)}<br><br>
-          <button class="retry-btn" onclick="retryInit()">Retry</button>
-        </div>
-      </div>`;
+    showError(`Render failed: ${err.message}`);
+    console.error('[Diamond] Render stack:', err.stack);
   }
 }
 
