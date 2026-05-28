@@ -577,7 +577,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.27.7';
+const APP_VERSION  = '2026.05.27.8';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -1954,9 +1954,9 @@ init();
   // ── Results
   const total = pass.length + fail.length;
   if(fail.length === 0){
-    console.log(\`%c✓ Diamond Audit: \${pass.length}/\${total} tests passed\`, 'color:#22c55e;font-weight:bold;font-size:13px');
+    console.log('%c✓ Diamond Audit: ' + pass.length + '/' + total + ' tests passed', 'color:#22c55e;font-weight:bold;font-size:13px');
   } else {
-    console.warn(\`%c✗ Diamond Audit: \${fail.length} FAILED of \${total}\`, 'color:#ef4444;font-weight:bold;font-size:13px');
+    console.warn('%c✗ Diamond Audit: ' + fail.length + ' FAILED of ' + total, 'color:#ef4444;font-weight:bold;font-size:13px');
     fail.forEach(f => console.error(' FAIL:', f));
   }
   pass.forEach(p => console.log(' ✓', p));
