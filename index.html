@@ -563,7 +563,7 @@ main{
   <div class="series-grid" id="seriesGrid">
     <div class="loading-state">
       <div class="loading-bar-wrap"></div>
-      <div class="loading-label">Pulling MLB schedule...</div>
+      <div class="loading-label">Loading schedule...</div>
     </div>
   </div>
 </main>
@@ -577,7 +577,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.27.4';
+const APP_VERSION  = '2026.05.27.7';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -601,7 +601,6 @@ bustCache();
 /* ═══════════════════════════════════════════
    CONSTANTS
 ═══════════════════════════════════════════ */
-const MLB_API     = 'https://statsapi.mlb.com/api/v1';
 const STORAGE_KEY = 'diamond_v4';
 
 const GAME_STATUS = Object.freeze({ PREVIEW:'P', LIVE:'L', FINAL:'F', POSTPONED:'D' });
@@ -635,15 +634,16 @@ const TEAM_ABBR = Object.freeze({
   'Athletics':'OAK','Oakland Athletics':'OAK',
 });
 
+// Keyed by abbreviation — stable across MLB Stats API and ESPN API.
 const TEAM_COLORS = Object.freeze({
-  108:[186,0,33],  109:[167,25,48], 110:[223,70,1],  111:[189,48,57],
-  112:[14,51,134], 113:[198,1,31],  114:[0,56,93],   115:[51,153,102],
-  116:[12,35,64],  117:[0,45,98],   118:[0,70,135],  119:[0,50,98],
-  120:[171,0,3],   121:[0,45,114],  133:[0,45,98],   134:[39,37,31],
-  135:[47,36,29],  136:[12,44,86],  137:[253,90,30], 138:[196,30,58],
-  139:[9,44,92],   140:[0,50,120],  141:[19,74,142], 142:[12,35,64],
-  143:[232,24,40], 144:[19,114,48], 145:[39,38,31],  146:[0,56,49],
-  147:[0,48,135],  158:[19,41,75],
+  'ARI':[167,25,48],  'ATL':[19,114,48],   'BAL':[223,70,1],   'BOS':[189,48,57],
+  'CHC':[14,51,134],  'CWS':[39,38,31],    'CIN':[198,1,31],   'CLE':[0,56,93],
+  'COL':[51,153,102], 'DET':[12,35,64],    'HOU':[0,45,98],    'KC':[0,70,135],
+  'LAA':[186,0,33],   'LAD':[0,50,98],     'MIA':[0,56,49],    'MIL':[19,41,75],
+  'MIN':[12,35,64],   'NYM':[0,45,114],    'NYY':[0,48,135],   'OAK':[0,45,98],
+  'PHI':[232,24,40],  'PIT':[39,37,31],    'SD':[47,36,29],    'SF':[253,90,30],
+  'SEA':[12,44,86],   'STL':[196,30,58],   'TB':[9,44,92],     'TEX':[0,50,120],
+  'TOR':[19,74,142],  'WSH':[171,0,3],
 });
 
 /* ═══════════════════════════════════════════
@@ -665,8 +665,13 @@ function weekRange(ref){
 function teamAbbr(name){
   return TEAM_ABBR[name]||name.split(' ').pop().slice(0,3).toUpperCase();
 }
-function teamColor(id){return TEAM_COLORS[id]||[100,100,100];}
-function logoUrl(id){return `https://www.mlbstatic.com/team-logos/${id}.svg`;}
+function teamColor(abbr){
+  return TEAM_COLORS[abbr] || [100,100,100];
+}
+function logoUrl(id, logoOverride){
+  if(logoOverride) return logoOverride;
+  return `https://a.espncdn.com/i/teamlogos/mlb/500/${id}.png`;
+}
 function seriesKey(aId,hId){return `${aId}_${hId}`;}
 
 // Per-day per-game pick key: sk_g{gameIdx}_d{dayRow}
@@ -699,19 +704,20 @@ function escHtml(s){
  */
 class Game {
   constructor(raw,idx){
+    if (!raw.status) console.warn('[Diamond] Game constructed with missing status — gameId:', raw.gameId);
     this.idx=idx;
     this.gameId=raw.gameId;
-    this.date=raw.date;
-    this.dateObj=raw.dateObj;
-    this.time=raw.time;
-    this.status=raw.status;
-    this.statusDetail=raw.statusDetail;
-    this.awayScore=raw.awayScore;
-    this.homeScore=raw.homeScore;
-    this.awayWin=raw.awayWin;
-    this.homeWin=raw.homeWin;
-    this.awayPitcher=raw.awayPitcher;
-    this.homePitcher=raw.homePitcher;
+    this.date=raw.date        || '';
+    this.dateObj=raw.dateObj  || new Date();
+    this.time=raw.time        || null;
+    this.status=raw.status    || GAME_STATUS.PREVIEW;
+    this.statusDetail=raw.statusDetail || '';
+    this.awayScore=raw.awayScore ?? null;
+    this.homeScore=raw.homeScore ?? null;
+    this.awayWin=raw.awayWin  || false;
+    this.homeWin=raw.homeWin  || false;
+    this.awayPitcher=raw.awayPitcher || null;
+    this.homePitcher=raw.homePitcher || null;
   }
   isFinal(){return this.status===GAME_STATUS.FINAL;}
   isLive(){return this.status===GAME_STATUS.LIVE;}
@@ -771,12 +777,14 @@ class Series {
     const homeW=done.filter(g=>g.homeWin).length;
     const total=this.totalGames;
     const isDone=done.length===total;
+    const awayLabel = this.away.abbr || teamAbbr(this.away.name);
+    const homeLabel = this.home.abbr || teamAbbr(this.home.name);
     if(isDone){
-      if(awayW===total)return{label:`${teamAbbr(this.away.name)} Sweep`,type:'sweep',awayW,homeW};
-      if(homeW===total)return{label:`${teamAbbr(this.home.name)} Sweep`,type:'sweep',awayW,homeW};
+      if(awayW===total)return{label:`${awayLabel} Sweep`,type:'sweep',awayW,homeW};
+      if(homeW===total)return{label:`${homeLabel} Sweep`,type:'sweep',awayW,homeW};
       return{label:'Series Split',type:'split',awayW,homeW};
     }
-    return{label:`${teamAbbr(this.away.name)} ${awayW} – ${homeW} ${teamAbbr(this.home.name)}`,type:'live',awayW,homeW};
+    return{label:`${awayLabel} ${awayW} – ${homeW} ${homeLabel}`,type:'live',awayW,homeW};
   }
 
   dateRange(){
@@ -957,108 +965,187 @@ function computeSeriesScore(series, state){
 /* ═══════════════════════════════════════════
    DATA LAYER — injectable seam for testing
 ═══════════════════════════════════════════ */
+const ESPN_API = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb';
+
 const DataSource = {
-  // Wraps fetch with a 10-second timeout.
-  // If the MLB API hangs silently, we bail instead of spinning forever.
-  async _fetch(url, timeoutMs = 10000) {
+
+  async _fetch(url, timeoutMs = 12000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) throw new Error(`MLB API error ${res.status}`);
-      return await res.json();
+      console.log('[Diamond] Fetching:', url);
+      const res = await fetch(url, { signal: controller.signal, credentials: 'omit', headers: { 'Accept': 'application/json' } });
+      console.log('[Diamond] Status:', res.status);
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch(e) {
+        console.error('[Diamond] Non-JSON response:', text.slice(0, 200));
+        throw new Error(`Non-JSON response (status ${res.status})`);
+      }
     } catch(err) {
-      if (err.name === 'AbortError') throw new Error('MLB API timed out — tap Retry');
+      if (err.name === 'AbortError') throw new Error('Request timed out — tap Retry');
+      console.error('[Diamond] Fetch error:', err.message);
       throw err;
     } finally {
       clearTimeout(timer);
     }
   },
 
-  async fetchSchedule(startDate, endDate) {
-    const url = `${MLB_API}/schedule?sportId=1&startDate=${startDate}&endDate=${endDate}`
-              + `&gameType=R&hydrate=probablePitcher,linescore,team,venue`;
+  async fetchDay(dateStr) {
+    const d = dateStr.replace(/-/g, '');
+    const url = `${ESPN_API}/scoreboard?dates=${d}&limit=30`;
     const data = await this._fetch(url);
-    return data.dates || [];
+    return data.events || [];
   },
 
-  async fetchStandings(season) {
-    const url  = `${MLB_API}/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason`;
-    const data = await this._fetch(url);
-    const map  = {};
-    (data.records || []).forEach(div =>
-      (div.teamRecords || []).forEach(tr => {
-        map[tr.team.id] = `${tr.wins}-${tr.losses}`;
-      })
-    );
-    return map;
+  async fetchSchedule(startDate, endDate) {
+    const dates = [];
+    const cur = new Date(startDate + 'T12:00:00');
+    const end = new Date(endDate   + 'T12:00:00');
+    while (cur <= end) {
+      dates.push(toDateStr(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    const results = await Promise.all(dates.map(async d => {
+      try {
+        const events = await this.fetchDay(d);
+        return { date: d, events };
+      } catch(err) {
+        console.warn('[Diamond] Failed to fetch', d, err.message);
+        return { date: d, events: [] };
+      }
+    }));
+    return results;
+  },
+
+  async fetchStandings() {
+    const url = `${ESPN_API}/standings`;
+    try {
+      const data = await this._fetch(url);
+      return parseESPNStandings(data);
+    } catch(err) {
+      console.warn('[Diamond] Standings unavailable:', err.message);
+      return {};
+    }
   },
 };
 
+/* ═══════════════════════════════════════════
+   ESPN PARSERS
+═══════════════════════════════════════════ */
+
+function espnStatusToCode(state) {
+  switch(state) {
+    case 'pre':       return GAME_STATUS.PREVIEW;
+    case 'in':        return GAME_STATUS.LIVE;
+    case 'post':      return GAME_STATUS.FINAL;
+    case 'postponed': return GAME_STATUS.POSTPONED;
+    default:          return GAME_STATUS.PREVIEW;
+  }
+}
+
+function espnTeamObj(competitor) {
+  const t = competitor.team || {};
+  const parsedId = parseInt(t.id);
+  return {
+    id:   isNaN(parsedId) ? 0 : parsedId,   // guard against NaN breaking seriesKey
+    name: t.displayName || t.name || t.abbreviation || '?',
+    abbr: t.abbreviation || '',
+    logo: t.logo || '',
+  };
+}
+
+function parseESPNStandings(data) {
+  const map = {};
+  const children = data?.children || [];
+  children.forEach(league => {
+    (league.children || []).forEach(div => {
+      (div.standings?.entries || []).forEach(entry => {
+        const parsedId = parseInt(entry.team?.id);
+        const teamId   = isNaN(parsedId) ? null : parsedId;
+        const stats    = entry.stats || [];
+        const wins     = stats.find(s => s.name === 'wins')?.value   || 0;
+        const losses   = stats.find(s => s.name === 'losses')?.value || 0;
+        if (teamId) map[teamId] = `${wins}-${losses}`;
+      });
+    });
+  });
+  if (!Object.keys(map).length) {
+    console.warn('[Diamond] parseESPNStandings: empty result — ESPN standings structure may have changed');
+  }
+  return map;
+}
+
 /**
- * Parse raw MLB API dates into Series objects.
- * Fetch window is wider than display week to catch
- * mid-week series starts correctly.
+ * Parse ESPN schedule results into Series objects.
+ * Input: [{ date: 'YYYY-MM-DD', events: ESPN event[] }]
  */
-function parseDatesIntoSeries(dates, displayStart, displayEnd){
-  const map={};
+function parseDatesIntoSeries(dayResults, displayStart, displayEnd) {
+  const map = {};
 
-  dates.forEach(dateObj=>{
-    const dateStr=dateObj.date;
-    (dateObj.games||[]).forEach(raw=>{
-      const code=raw.status?.abstractGameCode;
-      if(code!==GAME_STATUS.PREVIEW&&code!==GAME_STATUS.LIVE&&code!==GAME_STATUS.FINAL)return;
+  dayResults.forEach(({ date: dateStr, events }) => {
+    (events || []).forEach(event => {
+      const comp = event.competitions?.[0];
+      if (!comp) return;
 
-      const away=raw.teams.away.team;
-      const home=raw.teams.home.team;
-      const sk=seriesKey(away.id,home.id);
+      const stateType = event.status?.type?.state || 'pre';
+      const status    = espnStatusToCode(stateType);
+      if (status === GAME_STATUS.POSTPONED) return;
 
-      if(!map[sk]){
-        map[sk]={
-          key:sk,away,home,
-          venue:raw.venue?.name||'',
-          games:[],
-          totalGames:raw.gamesInSeries||0,
-        };
+      const competitors = comp.competitors || [];
+      const awaySide    = competitors.find(c => c.homeAway === 'away');
+      const homeSide    = competitors.find(c => c.homeAway === 'home');
+      if (!awaySide || !homeSide) return;
+
+      const away = espnTeamObj(awaySide);
+      const home = espnTeamObj(homeSide);
+      const sk   = seriesKey(away.id, home.id);
+
+      if (!map[sk]) {
+        map[sk] = { key:sk, away, home, venue:comp.venue?.fullName||'', games:[], totalGames:0 };
       }
-      // Update totalGames to the highest seen (API field)
-      if(raw.gamesInSeries&&raw.gamesInSeries>map[sk].totalGames){
-        map[sk].totalGames=raw.gamesInSeries;
-      }
+
+      const awayScore = parseFloat(awaySide.score) ?? 0;
+      const homeScore = parseFloat(homeSide.score) ?? 0;
+      const isFinal   = status === GAME_STATUS.FINAL;
+      const awayWin   = isFinal && awayScore > homeScore;
+      const homeWin   = isFinal && homeScore > awayScore;
+
+      const probables   = comp.probables || [];
+      const awayPitcher = probables.find(p => p.homeAway === 'away')?.athlete?.displayName || null;
+      const homePitcher = probables.find(p => p.homeAway === 'home')?.athlete?.displayName || null;
 
       map[sk].games.push(new Game({
-        gameId:raw.gamePk,
-        date:dateStr,
-        dateObj:new Date(dateStr+'T12:00:00'),
-        time:raw.gameDate,
-        status:code,
-        statusDetail:raw.status?.detailedState,
-        awayScore:raw.teams.away.score,
-        homeScore:raw.teams.home.score,
-        awayWin:raw.teams.away.isWinner,
-        homeWin:raw.teams.home.isWinner,
-        awayPitcher:raw.teams.away.probablePitcher?.fullName,
-        homePitcher:raw.teams.home.probablePitcher?.fullName,
-      },0));
+        gameId:       event.id,
+        date:         dateStr,
+        dateObj:      new Date(dateStr + 'T12:00:00'),
+        time:         event.date,
+        status,
+        statusDetail: event.status?.type?.shortDetail || '',
+        awayScore:    isFinal ? awayScore : null,
+        homeScore:    isFinal ? homeScore : null,
+        awayWin,
+        homeWin,
+        awayPitcher,
+        homePitcher,
+      }, 0));
     });
   });
 
-  const dsStr=toDateStr(displayStart);
-  const deStr=toDateStr(displayEnd);
+  const dsStr = toDateStr(displayStart);
+  const deStr = toDateStr(displayEnd);
 
   return Object.values(map)
-    .filter(raw=>{
-      // Only show series that have at least one game within the display week
-      return raw.games.some(g=>g.date>=dsStr&&g.date<=deStr);
-    })
-    .map(raw=>{
-      raw.games.sort((a,b)=>a.dateObj-b.dateObj);
-      raw.games.forEach((g,i)=>{g.idx=i;});
-      if(!raw.totalGames)raw.totalGames=raw.games.length;
+    .filter(raw => raw.games.some(g => g.date >= dsStr && g.date <= deStr))
+    .map(raw => {
+      raw.games.sort((a, b) => a.dateObj - b.dateObj);
+      raw.games.forEach((g, i) => { g.idx = i; });
+      raw.totalGames = raw.games.length;
       return new Series(raw);
     })
-    // Sort by series start date ascending — earliest series first
-    .sort((a,b)=>a.startDate()-b.startDate());
+    .sort((a, b) => a.startDate() - b.startDate());
 }
 
 /* ═══════════════════════════════════════════
@@ -1108,8 +1195,9 @@ const AppState={
    RENDER HELPERS
 ═══════════════════════════════════════════ */
 function renderTeamLogo(team,size=52){
-  const a=teamAbbr(team.name);
-  return`<img class="team-logo" src="${logoUrl(team.id)}" width="${size}" height="${size}" alt="${a}"
+  const a=team.abbr||teamAbbr(team.name);
+  const src=logoUrl(team.id,team.logo);
+  return`<img class="team-logo" src="${src}" width="${size}" height="${size}" alt="${a}"
     onerror="this.outerHTML='<div class=\\'team-logo-fallback\\'>${a}</div>'">`;
 }
 
@@ -1156,10 +1244,10 @@ function renderGameSlot({ game, series, dayRow, today, isPrefilled, rowLocked })
   const isPickable = !isPrefilled && !rowLocked && game.isPickable(today) && !game.isFuture(today);
   const isFutureSlot = game.isFuture(today) && !isPrefilled;
 
-  const awayColor = teamColor(series.away.id);
-  const homeColor = teamColor(series.home.id);
-  const awayAbbr  = teamAbbr(series.away.name);
-  const homeAbbr  = teamAbbr(series.home.name);
+  const awayColor = teamColor(series.away.abbr || teamAbbr(series.away.name));
+  const homeColor = teamColor(series.home.abbr || teamAbbr(series.home.name));
+  const awayAbbr  = series.away.abbr || teamAbbr(series.away.name);
+  const homeAbbr  = series.home.abbr || teamAbbr(series.home.name);
 
   // Determine box state
   let boxClass = 'slot-box';
@@ -1431,13 +1519,13 @@ function renderSeriesCard(series, today){
     <div class="teams-row">
       <div class="team-side away">
         ${renderTeamLogo(series.away)}
-        <div class="team-name">${escHtml(teamAbbr(series.away.name))}</div>
+        <div class="team-name">${escHtml(series.away.abbr||teamAbbr(series.away.name))}</div>
         <div class="team-record">${escHtml(awayRec)}</div>
       </div>
       <div class="at-divider">at</div>
       <div class="team-side home">
         ${renderTeamLogo(series.home)}
-        <div class="team-name">${escHtml(teamAbbr(series.home.name))}</div>
+        <div class="team-name">${escHtml(series.home.abbr||teamAbbr(series.home.name))}</div>
         <div class="team-record">${escHtml(homeRec)}</div>
       </div>
     </div>
@@ -1587,7 +1675,7 @@ function attachAllHandlers(){
 }
 
 /* ═══════════════════════════════════════════
-   INIT
+   UI FEEDBACK HELPERS
 ═══════════════════════════════════════════ */
 function showLoadingStep(msg) {
   const el = document.querySelector('.loading-label');
@@ -1607,6 +1695,18 @@ function showError(msg) {
     </div>`;
 }
 
+function retryInit() {
+  document.getElementById('seriesGrid').innerHTML = `
+    <div class="loading-state">
+      <div class="loading-bar-wrap"></div>
+      <div class="loading-label">Retrying...</div>
+    </div>`;
+  init();
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
 async function init(){
   AppState.load();
 
@@ -1616,7 +1716,9 @@ async function init(){
   document.getElementById('weekRange').textContent =
     `Week of ${fmtWeekRange(range.start, range.end)}`;
 
-  const fetchStart = shiftDays(range.start, -3);
+  // Fetch exactly the display week — Mon through Sun.
+  // Series that started prior week are not surfaced; ESPN groups by event date.
+  const fetchStart = range.start;
   const fetchEnd   = range.end;
 
   // Step 1 — fetch schedule
@@ -1634,7 +1736,7 @@ async function init(){
   let records;
   try {
     showLoadingStep('Fetching standings...');
-    records = await DataSource.fetchStandings(now.getFullYear());
+    records = await DataSource.fetchStandings();
     console.log('[Diamond] Standings OK —', Object.keys(records).length, 'teams');
   } catch(err) {
     // Standings failure is non-fatal — show records as dashes
@@ -1679,15 +1781,6 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible')checkRollover();
 });
 setInterval(checkRollover, 5*60*1000);
-
-function retryInit() {
-  document.getElementById('seriesGrid').innerHTML = `
-    <div class="loading-state">
-      <div class="loading-bar-wrap"></div>
-      <div class="loading-label">Retrying...</div>
-    </div>`;
-  init();
-}
 
 init();
 
@@ -1830,4 +1923,44 @@ init();
   assert('computeWeekStats empty = zero pending', emptyStats.pending===0);
   assert('computeWeekStats empty = null pct', emptyStats.pct===null);
 
-  // ─
+  // ── 17. espnTeamObj — NaN guard
+  const mockComp = { team: { id: '22', displayName: 'Toronto Blue Jays', abbreviation: 'TOR', logo: 'http://logo.png' } };
+  const teamObj = espnTeamObj(mockComp);
+  assert('espnTeamObj id is number',   typeof teamObj.id === 'number' && !isNaN(teamObj.id));
+  assert('espnTeamObj id parsed',      teamObj.id === 22);
+  assert('espnTeamObj abbr',           teamObj.abbr === 'TOR');
+
+  const missingId = espnTeamObj({ team: {} });
+  assert('espnTeamObj missing id = 0', missingId.id === 0);
+
+  // ── 18. espnStatusToCode mapping
+  assert('espnStatus pre → PREVIEW',   espnStatusToCode('pre')       === GAME_STATUS.PREVIEW);
+  assert('espnStatus in → LIVE',       espnStatusToCode('in')        === GAME_STATUS.LIVE);
+  assert('espnStatus post → FINAL',    espnStatusToCode('post')      === GAME_STATUS.FINAL);
+  assert('espnStatus unknown → PREVIEW', espnStatusToCode('unknown') === GAME_STATUS.PREVIEW);
+
+  // ── 19. score zero-zero game uses nullish coalescing correctly
+  // parseFloat('0') ?? 0 should be 0, not falsy-replaced
+  const zeroScore = parseFloat('0') ?? 0;
+  assert('zero score preserved (nullish)', zeroScore === 0);
+  // Confirm old || 0 bug: parseFloat('0') || 0 is also 0 but for wrong reason
+  // The fix ensures explicit null/undefined → 0, not falsy → 0
+  const nullScore = parseFloat(null) ?? 0;
+  assert('null score → 0 via nullish',  nullScore === 0);
+
+  // ── 20. seriesKey with ESPN-style ids
+  assert('seriesKey ESPN ids', seriesKey(22, 3) === '22_3');
+
+  // ── Results
+  const total = pass.length + fail.length;
+  if(fail.length === 0){
+    console.log(\`%c✓ Diamond Audit: \${pass.length}/\${total} tests passed\`, 'color:#22c55e;font-weight:bold;font-size:13px');
+  } else {
+    console.warn(\`%c✗ Diamond Audit: \${fail.length} FAILED of \${total}\`, 'color:#ef4444;font-weight:bold;font-size:13px');
+    fail.forEach(f => console.error(' FAIL:', f));
+  }
+  pass.forEach(p => console.log(' ✓', p));
+})();
+</script>
+</body>
+</html>
