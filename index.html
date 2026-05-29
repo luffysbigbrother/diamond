@@ -710,7 +710,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.28.14';
+const APP_VERSION  = '2026.05.28.16';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -1128,6 +1128,40 @@ function computeSeriesScore(series, state){
 ═══════════════════════════════════════════ */
 const ESPN_API = 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb';
 
+/**
+ * Extract the local game date (YYYY-MM-DD) from an ESPN event.
+ * Pure function — no side-effects, fully testable.
+ *
+ * Strategy 1: Parse shortDetail like "5/25 - 1:10 PM EDT"
+ *   Reliable because it reflects the local game date as scheduled.
+ *   Year is inferred from fallbackYear (the fetch window's start year).
+ *   Note: year-boundary edge case (Dec 31 → Jan 1) not relevant for
+ *   baseball season (April–October), always within one calendar year.
+ *
+ * Strategy 2: Convert event.date (UTC ISO) to ET.
+ *   Baseball season = always EDT (UTC-4, April–October).
+ *   EST (UTC-5) applies Nov–Mar which is outside the MLB regular season.
+ *
+ * @param {object} event        — ESPN event object
+ * @param {string} fallbackYear — 'YYYY' string from fetch start date
+ * @returns {string} 'YYYY-MM-DD'
+ */
+function extractGameDate(event, fallbackYear) {
+  const detail    = event.status?.type?.shortDetail || '';
+  const dateMatch = detail.match(/^(\d{1,2})\/(\d{1,2})/);
+
+  if (dateMatch) {
+    const month = dateMatch[1].padStart(2, '0');
+    const day   = dateMatch[2].padStart(2, '0');
+    return `${fallbackYear}-${month}-${day}`;
+  }
+
+  // Fallback: shift UTC game time to ET (UTC-4 = EDT, valid for baseball season)
+  const etDate = new Date(event.date);
+  etDate.setHours(etDate.getHours() - 4);
+  return toDateStr(etDate);
+}
+
 const DataSource = {
 
   async _fetch(url, timeoutMs = 12000) {
@@ -1154,31 +1188,39 @@ const DataSource = {
     }
   },
 
-  async fetchDay(dateStr) {
-    const d = dateStr.replace(/-/g, '');
-    const url = `${ESPN_API}/scoreboard?dates=${d}&limit=30`;
-    const data = await this._fetch(url);
-    return data.events || [];
-  },
-
   async fetchSchedule(startDate, endDate) {
-    const dates = [];
-    const cur = new Date(startDate + 'T12:00:00');
-    const end = new Date(endDate   + 'T12:00:00');
-    while (cur <= end) {
-      dates.push(toDateStr(cur));
-      cur.setDate(cur.getDate() + 1);
+    // Single range call — more reliable than day-by-day for completed games.
+    // ESPN scoreboard ?dates=YYYYMMDD-YYYYMMDD returns all games in range.
+    // limit=200 safely covers a full week (~105 max games). If ESPN ever
+    // paginates, games beyond 200 would be silently dropped — not a current concern.
+    const start      = startDate.replace(/-/g, '');
+    const end        = endDate.replace(/-/g, '');
+    const url        = `${ESPN_API}/scoreboard?dates=${start}-${end}&limit=200`;
+    const fetchYear  = startDate.slice(0, 4); // passed to extractGameDate
+
+    let data;
+    try {
+      data = await this._fetch(url);
+    } catch(err) {
+      // Re-throw timeout and network errors so init() can show the Retry button.
+      // Only swallow errors that are clearly non-fatal (shouldn't occur here).
+      console.error('[Diamond] fetchSchedule failed:', err.message);
+      throw err;
     }
-    const results = await Promise.all(dates.map(async d => {
-      try {
-        const events = await this.fetchDay(d);
-        return { date: d, events };
-      } catch(err) {
-        console.warn('[Diamond] Failed to fetch', d, err.message);
-        return { date: d, events: [] };
-      }
-    }));
-    return results;
+
+    const events = data.events || [];
+    const byDate = {};
+
+    events.forEach(event => {
+      const dateStr = extractGameDate(event, fetchYear);
+      if (!byDate[dateStr]) byDate[dateStr] = [];
+      byDate[dateStr].push(event);
+    });
+
+    // Return in parseDatesIntoSeries-compatible format: [{ date, events[] }]
+    return Object.entries(byDate)
+      .map(([date, evts]) => ({ date, events: evts }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   },
 
   async fetchStandings() {
@@ -2246,6 +2288,29 @@ init();
 
   // ── 20. seriesKey with ESPN-style ids
   assert('seriesKey ESPN ids', seriesKey(22, 3) === '22_3');
+
+  // ── 20b. extractGameDate — shortDetail parsing
+  const mockEvent1 = { status: { type: { shortDetail: '5/25 - 1:10 PM EDT' } }, date: '2026-05-25T17:10:00Z' };
+  assert('extractGameDate shortDetail May 25',  extractGameDate(mockEvent1, '2026') === '2026-05-25');
+
+  const mockEvent2 = { status: { type: { shortDetail: '12/31 - 7:05 PM EDT' } }, date: '2026-12-31T23:05:00Z' };
+  assert('extractGameDate shortDetail Dec 31',  extractGameDate(mockEvent2, '2026') === '2026-12-31');
+
+  const mockEvent3 = { status: { type: { shortDetail: '5/3 - 1:10 PM EDT' } }, date: '2026-05-03T17:10:00Z' };
+  assert('extractGameDate single-digit month/day', extractGameDate(mockEvent3, '2026') === '2026-05-03');
+
+  // extractGameDate fallback — no shortDetail, use UTC-4 ET conversion
+  const mockEvent4 = { status: { type: { shortDetail: '' } }, date: '2026-05-25T23:30:00Z' };
+  // 2026-05-25T23:30Z - 4h = 2026-05-25T19:30 ET → still May 25
+  assert('extractGameDate ET fallback same day', extractGameDate(mockEvent4, '2026') === '2026-05-25');
+
+  const mockEvent5 = { status: { type: { shortDetail: '' } }, date: '2026-05-26T02:00:00Z' };
+  // 2026-05-26T02:00Z - 4h = 2026-05-25T22:00 ET → May 25 (late night game)
+  assert('extractGameDate ET fallback late night', extractGameDate(mockEvent5, '2026') === '2026-05-25');
+
+  // extractGameDate with missing status
+  const mockEvent6 = { date: '2026-05-27T17:10:00Z' };
+  assert('extractGameDate no status field', typeof extractGameDate(mockEvent6, '2026') === 'string');
 
   // ── 21. getSlotStates — Day 1 all open
   function mkPreviewGame(idx) {
