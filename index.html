@@ -270,6 +270,18 @@ main{
 .tag-played{color:var(--text-muted);border:1px solid var(--border2);opacity:0.6;}
 .tag-future{color:var(--text-muted);border:1px solid var(--border);opacity:0.4;}
 
+/* Past locked rows — dimmed history, not the current focus */
+.pick-row.is-past-locked {
+  opacity: 0.45;
+  transition: opacity 0.2s;
+}
+.pick-row.is-past-locked:hover {
+  opacity: 0.65;
+}
+
+/* Current day row — full weight, gold accent on label already handles emphasis */
+.pick-row.is-current { opacity: 1; }
+
 /* Row score */
 .row-score{
   font-family:'Share Tech Mono',monospace;font-size:9px;
@@ -710,7 +722,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.28.20';
+const APP_VERSION  = '2026.05.28.22';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -1780,7 +1792,15 @@ function renderPickRows(series, today, dates){
       });
     });
 
-    return `<div class="pick-row" data-sk="${escHtml(sk)}" data-dayrow="${dayRow}">
+    // Visual hierarchy — three states:
+    //   is-current     → today's row, full opacity, where the decision is made
+    //   is-past-locked → committed history, dimmed to 0.45 (hoverable to 0.65)
+    //   ''             → future or open past rows, browser-default opacity
+    const rowVisClass = isToday ? 'is-current'
+      : (isPast && rowLocked) ? 'is-past-locked'
+      : '';
+
+    return `<div class="pick-row ${rowVisClass}" data-sk="${escHtml(sk)}" data-dayrow="${dayRow}">
       <div class="row-header">
         <span class="${labelClass}">Day ${dayRow} · ${escHtml(dayLabel)}</span>
         <div class="row-divider"></div>
