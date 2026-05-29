@@ -727,7 +727,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.28.26';
+const APP_VERSION  = '2026.05.28.27';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -1798,11 +1798,11 @@ function renderPickRows(series, today, dates){
     });
 
     // Visual hierarchy — three states:
-    //   is-current     → today's row, full opacity, where the decision is made
-    //   is-past-locked → committed history, dimmed to 0.45 (hoverable to 0.65)
-    //   ''             → future or open past rows, browser-default opacity
-    const rowVisClass = isToday ? 'is-current'
-      : (isPast && rowLocked) ? 'is-past-locked'
+    //   is-current     → today's row, not yet locked, full opacity — active decision
+    //   is-past-locked → committed (past OR today-locked), dimmed to 0.45 (hoverable to 0.65)
+    //   ''             → future rows, browser-default opacity
+    const rowVisClass = (isToday && !rowLocked) ? 'is-current'
+      : ((isPast || isToday) && rowLocked) ? 'is-past-locked'
       : '';
 
     return `<div class="pick-row ${rowVisClass}" data-sk="${escHtml(sk)}" data-dayrow="${dayRow}">
