@@ -710,7 +710,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.28.16';
+const APP_VERSION  = '2026.05.28.18';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -788,7 +788,15 @@ const TEAM_COLORS = Object.freeze({
 /* ═══════════════════════════════════════════
    PURE HELPERS — no side-effects, testable
 ═══════════════════════════════════════════ */
-function toDateStr(d){return d.toISOString().split('T')[0];}
+function toDateStr(d){
+  // Use local date parts — toISOString() converts to UTC which shifts the
+  // date for users in timezones behind UTC (e.g. ET = UTC-4 pushes
+  // Monday 9pm ET to Tuesday 1am UTC, producing the wrong date string).
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 function shiftDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 
@@ -1156,9 +1164,14 @@ function extractGameDate(event, fallbackYear) {
     return `${fallbackYear}-${month}-${day}`;
   }
 
-  // Fallback: shift UTC game time to ET (UTC-4 = EDT, valid for baseball season)
+  // Fallback: shift UTC game time to ET (UTC-4 = EDT, valid for baseball season).
+  // setHours() with a negative value correctly rolls back the date —
+  // e.g. setHours(-2) on May 26 gives 10pm May 25. This is intentional:
+  // a 2am UTC game (10pm ET) belongs to the previous calendar day.
+  // DST transitions don't affect the baseball regular season (Apr-Oct).
   const etDate = new Date(event.date);
   etDate.setHours(etDate.getHours() - 4);
+  // toDateStr uses local date parts — consistent with the rest of the app
   return toDateStr(etDate);
 }
 
@@ -2187,6 +2200,28 @@ init();
   const dp_d4={4:PICK.AWAY};
   const {pts:pts_d4}=scoreGame(g1,dp_d4,0);
   assert('Day4 correct = 10pts', pts_d4===10);
+
+  // ── 8b. toDateStr — uses local date parts not UTC (the timezone bug fix)
+  // Construct dates at noon local time — unambiguously the correct local date.
+  const d_may25 = new Date('2026-05-25T12:00:00');
+  assert('toDateStr local noon May 25',  toDateStr(d_may25) === '2026-05-25');
+
+  const d_dec31 = new Date('2026-12-31T12:00:00');
+  assert('toDateStr local noon Dec 31',  toDateStr(d_dec31) === '2026-12-31');
+
+  const d_jan1  = new Date('2026-01-01T12:00:00');
+  assert('toDateStr local noon Jan 1',   toDateStr(d_jan1)  === '2026-01-01');
+
+  // Zero-padding
+  const d_may3  = new Date('2026-05-03T12:00:00');
+  assert('toDateStr zero-pads day',      toDateStr(d_may3)  === '2026-05-03');
+
+  const d_feb5  = new Date('2026-02-05T12:00:00');
+  assert('toDateStr zero-pads month',    toDateStr(d_feb5)  === '2026-02-05');
+
+  // Format shape — YYYY-MM-DD (timezone-independent check)
+  const d_any = new Date('2026-05-26T01:00:00Z');
+  assert('toDateStr returns YYYY-MM-DD', /^\d{4}-\d{2}-\d{2}$/.test(toDateStr(d_any)));
 
   // ── 9. weekRange — Monday anchor
   const mon=new Date('2026-05-25T12:00:00'); // Monday
