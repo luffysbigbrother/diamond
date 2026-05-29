@@ -28,6 +28,7 @@
    DESIGN TOKENS
 ───────────────────────────────────────── */
 :root {
+  --slot-height: 108px;  /* unified height for all slot card types */
   --bg:         #0a0c0f;
   --surface:    #111318;
   --surface2:   #181c23;
@@ -161,6 +162,7 @@ main{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(380px,1fr));
   gap:14px;
+  align-items:start; /* cards start at top — natural height, no forced stretch */
 }
 
 /* ─────────────────────────────────────────
@@ -304,15 +306,17 @@ main{
 .slot-box{
   border:1px solid var(--border2);background:var(--surface2);
   overflow:hidden;position:relative;transition:border-color 0.15s;
-  user-select:none;flex:1;
+  user-select:none;
+  /* flex:1 removed — slot-box height is driven by inner card via --slot-height,
+     not by flex stretching from parent */
 }
 .slot-box.is-pickable:hover{border-color:var(--accent);}
 .slot-box.is-future{opacity:0.25;pointer-events:none;}
 .slot-box.is-prefilled{cursor:default;pointer-events:none;}
 
 /* Two tap targets */
-/* height matches winner card min-height + padding so mixed rows stay even */
-.slot-halves{display:grid;grid-template-columns:1fr 1fr;height:102px;}
+/* unified slot height — all slot types match for consistent row alignment */
+.slot-halves{display:grid;grid-template-columns:1fr 1fr;height:var(--slot-height);}
 .slot-half{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:4px;padding:8px 4px;cursor:pointer;
@@ -366,7 +370,7 @@ main{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 90px;
+  height: var(--slot-height);
   gap: 4px;
   position: relative;
   overflow: hidden;
@@ -422,11 +426,11 @@ main{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 90px;
-  padding: 6px 4px;
+  height: var(--slot-height);
+  padding: 4px;
   position: relative;
   overflow: hidden;
-  gap: 3px;
+  gap: 2px;
 }
 
 /* Subtle team color wash behind logo */
@@ -723,7 +727,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.28.24';
+const APP_VERSION  = '2026.05.28.26';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
