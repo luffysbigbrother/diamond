@@ -727,7 +727,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.28.27';
+const APP_VERSION  = '2026.05.28.29';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -1674,14 +1674,20 @@ function renderGameSlot({ game, series, dayRow, today, isPrefilled, isMissed, is
  *
  * Missing a day = missing that scoring opportunity. No retroactive picks.
  */
-function getSlotStates(games, dayRow, rowOpen, isDay1Open = false) {
+function getSlotStates(games, dayRow, rowOpen, isDay1Open = false, isTodayRow = false) {
   const result = new Map();
 
   games.forEach(g => {
-    const isPrefilled  = g.isFinal() && (g.idx < dayRow - 1);
-    const isMissed     = !isDay1Open && !g.isFinal() && g.idx < dayRow - 1;
-    const isBeyondRow  = !isDay1Open && !g.isFinal() && g.idx > dayRow - 1;
-    const isPickable   = rowOpen && !g.isFinal() && !isMissed && !isBeyondRow;
+    const isPrefilled = g.isFinal() && (g.idx < dayRow - 1);
+
+    // isMissed/isBeyondRow only apply to past rows — not today's or future rows.
+    // On today's row ALL remaining non-final games are open for picking.
+    // On future rows, rowOpen=false makes isPickable=false regardless of isMissed/isBeyondRow,
+    // so isMissed may be technically true on future rows but has no visual effect —
+    // the entire future row is dimmed at the row level, not the slot level.
+    const isMissed    = !isDay1Open && !isTodayRow && !g.isFinal() && g.idx < dayRow - 1;
+    const isBeyondRow = !isDay1Open && !isTodayRow && !g.isFinal() && g.idx > dayRow - 1;
+    const isPickable  = rowOpen && !g.isFinal() && !isMissed && !isBeyondRow;
 
     result.set(g, { isPrefilled, isMissed, isBeyondRow, isPickable });
   });
@@ -1717,8 +1723,9 @@ function renderPickRows(series, today, dates){
     // Day 1 exception applies only when Day 1 row is today or future.
     // Past Day 1 rows use normal rules — missed slots are dimmed.
     const isDay1Open = dayRow === 1 && (isToday || isFuture);
+    const isTodayRow = isToday; // on today's row, all remaining games are open
     // Compute slot states for all games in this row using pure function.
-    const slotStates = getSlotStates(series.games, dayRow, rowOpen, isDay1Open);
+    const slotStates = getSlotStates(series.games, dayRow, rowOpen, isDay1Open, isTodayRow);
 
     // Row tag
     let tagClass = 'row-status-tag';
@@ -2438,21 +2445,29 @@ init();
   const prevG1  = mkPreviewGame(1);
   const prevG2  = mkPreviewGame(2);
   const prevG3  = mkPreviewGame(3);
-  const day2States = getSlotStates([finalG0, prevG1, prevG2, prevG3], 2, true);
-  assert('Day2: Game1 prefilled',      day2States.get(finalG0).isPrefilled === true);
-  assert('Day2: Game1 not pickable',   day2States.get(finalG0).isPickable  === false);
-  assert('Day2: Game2 pickable',       day2States.get(prevG1).isPickable   === true);
-  assert('Day2: Game3 beyondRow',      day2States.get(prevG2).isBeyondRow  === true);
-  assert('Day2: Game4 beyondRow',      day2States.get(prevG3).isBeyondRow  === true);
+  // Day 2 TODAY (isTodayRow=true) — GMs 2,3,4 all open
+  const day2States = getSlotStates([finalG0, prevG1, prevG2, prevG3], 2, true, false, true);
+  assert('Day2 today: Game1 prefilled',     day2States.get(finalG0).isPrefilled === true);
+  assert('Day2 today: Game1 not pickable',  day2States.get(finalG0).isPickable  === false);
+  assert('Day2 today: Game2 pickable',      day2States.get(prevG1).isPickable   === true);
+  assert('Day2 today: Game3 pickable',      day2States.get(prevG2).isPickable   === true);
+  assert('Day2 today: Game4 pickable',      day2States.get(prevG3).isPickable   === true);
+  assert('Day2 today: Game3 not beyondRow', day2States.get(prevG2).isBeyondRow  === false);
+  // Day 2 PAST (isTodayRow=false) — GM3,GM4 beyond row
+  const day2PastStates = getSlotStates([finalG0, prevG1, prevG2, prevG3], 2, false, false, false);
+  assert('Day2 past: Game3 beyondRow',  day2PastStates.get(prevG2).isBeyondRow === true);
+  assert('Day2 past: Game4 beyondRow',  day2PastStates.get(prevG3).isBeyondRow === true);
 
   // ── 23. getSlotStates — Day 3, Games 1-2 final, Game3 current, Game4 beyond
   const finalG1 = mkGame(1, false); // Game 2 final
   const prevG2b = mkPreviewGame(2);
   const prevG3b = mkPreviewGame(3);
-  const day3States = getSlotStates([finalG0, finalG1, prevG2b, prevG3b], 3, true);
-  assert('Day3: Game2 prefilled',      day3States.get(finalG1).isPrefilled === true);
-  assert('Day3: Game3 pickable',       day3States.get(prevG2b).isPickable  === true);
-  assert('Day3: Game4 beyondRow',      day3States.get(prevG3b).isBeyondRow === true);
+  // Day 3 TODAY — GM3 and GM4 both open
+  const day3States = getSlotStates([finalG0, finalG1, prevG2b, prevG3b], 3, true, false, true);
+  assert('Day3 today: Game2 prefilled',     day3States.get(finalG1).isPrefilled === true);
+  assert('Day3 today: Game3 pickable',      day3States.get(prevG2b).isPickable  === true);
+  assert('Day3 today: Game4 pickable',      day3States.get(prevG3b).isPickable  === true);
+  assert('Day3 today: Game4 not beyondRow', day3States.get(prevG3b).isBeyondRow === false);
 
   // ── 24. getSlotStates — missed slot (past row, game not final)
   const missedG = mkPreviewGame(0);
