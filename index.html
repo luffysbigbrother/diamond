@@ -710,7 +710,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.28.18';
+const APP_VERSION  = '2026.05.28.20';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -1923,6 +1923,35 @@ function updateStatsUI(){
 /* ═══════════════════════════════════════════
    GRID RENDER
 ═══════════════════════════════════════════ */
+/**
+ * Pure state function — applies auto-locks to all series rows.
+ * Called once before rendering, not inside render functions.
+ *
+ * Rule: if any game on a row's date has gone final, lock that row.
+ * This prevents retroactive pick changes after a result comes in.
+ * idempotent — safe to call multiple times.
+ *
+ * Note: In the rare case ESPN corrects a 'Final' back to 'Live'
+ * (score revision), the row stays locked permanently. Acceptable
+ * trade-off given how rarely this occurs in practice.
+ *
+ * @param {Series[]} series — all series for the week
+ */
+function applyAutoLocks(series) {
+  series.forEach(s => {
+    const sk    = s.key;
+    const dates = s.seriesDates();
+    dates.forEach((dateStr, rowIdx) => {
+      const dayRow = rowIdx + 1;
+      if(AppState.isRowLocked(sk, dayRow)) return; // already locked — skip
+      // Lock if any game on this row's date is final
+      if(s.games.some(g => g.date === dateStr && g.isFinal())){
+        AppState.lockRow(sk, dayRow);
+      }
+    });
+  });
+}
+
 function seriesSortKey(s, today){
   // Returns sort priority: 0=completed, 1=active today, 2=upcoming
   const todayStr = toDateStr(today);
@@ -1935,6 +1964,8 @@ function seriesSortKey(s, today){
 
 function renderGrid(){
   const today  = todayMidnight();
+  // Apply auto-locks before rendering — state mutation belongs here, not in render functions
+  applyAutoLocks(ApiCache.series);
   const series = [...ApiCache.series].sort((a, b) => {
     const ka = seriesSortKey(a, today);
     const kb = seriesSortKey(b, today);
@@ -1963,6 +1994,8 @@ function rerenderCard(sk){
   const series=ApiCache.series.find(s=>s.key===sk);
   if(!series)return;
   const today=todayMidnight();
+  // Re-apply auto-locks before re-rendering this card
+  applyAutoLocks([series]);
   const existing=document.querySelector(`.series-card[data-sk="${sk}"]`);
   if(!existing)return;
   const tmp=document.createElement('div');
@@ -2427,6 +2460,48 @@ init();
   assert('safeScore 0 → 0',         safeScore('0')       === 0);
   assert('safeScore 5 → 5',         safeScore('5')       === 5);
   assert('safeScore NaN str → 0',   safeScore('abc')     === 0);
+
+  // ── 26b. applyAutoLocks — auto-locks rows when games go final
+  // Build a mock series with Game 1 final, Games 2-4 preview
+  function mkAutoLockSeries() {
+    const g0 = mkGame(0, true);   // final
+    const g1 = mkPreviewGame(1);  // preview
+    const g2 = mkPreviewGame(2);
+    const g3 = mkPreviewGame(3);
+    // Give all games the same date so they share a row
+    g0.date = '2026-05-25'; g1.date = '2026-05-26';
+    g2.date = '2026-05-27'; g3.date = '2026-05-28';
+    return new Series({
+      key:'al_test',
+      away:{id:1,name:'Toronto Blue Jays',abbr:'TOR',logo:''},
+      home:{id:2,name:'Baltimore Orioles',abbr:'BAL',logo:''},
+      venue:'Camden Yards',
+      games:[g0,g1,g2,g3],
+      totalGames:4,
+    });
+  }
+
+  // Before applyAutoLocks — row 1 should not be locked
+  const alSeries = mkAutoLockSeries();
+  assert('Auto-lock: row 1 not locked before apply',
+    !AppState.isRowLocked('al_test', 1));
+
+  // After applyAutoLocks — row 1 should be locked (g0 is final on 2026-05-25)
+  applyAutoLocks([alSeries]);
+  assert('Auto-lock: row 1 locked after apply (game is final)',
+    AppState.isRowLocked('al_test', 1));
+
+  // Row 2 should NOT be locked (g1 is preview on 2026-05-26)
+  assert('Auto-lock: row 2 not locked (game not final)',
+    !AppState.isRowLocked('al_test', 2));
+
+  // Calling applyAutoLocks again is idempotent
+  applyAutoLocks([alSeries]);
+  assert('Auto-lock: idempotent — row 1 still locked after second apply',
+    AppState.isRowLocked('al_test', 1));
+
+  // Cleanup test state
+  delete AppState.locked['al_test_d1'];
 
   // ── 27. scoreSeriesOutcome — 3-game 2-1 correct team gets bonus
   function mk3GameSeries(awayWins) {
