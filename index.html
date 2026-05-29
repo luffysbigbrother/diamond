@@ -311,7 +311,8 @@ main{
 .slot-box.is-prefilled{cursor:default;pointer-events:none;}
 
 /* Two tap targets */
-.slot-halves{display:grid;grid-template-columns:1fr 1fr;height:90px;}
+/* height matches winner card min-height + padding so mixed rows stay even */
+.slot-halves{display:grid;grid-template-columns:1fr 1fr;height:102px;}
 .slot-half{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:4px;padding:8px 4px;cursor:pointer;
@@ -421,10 +422,11 @@ main{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 90px;
+  min-height: 90px;
+  padding: 6px 4px;
   position: relative;
   overflow: hidden;
-  gap: 4px;
+  gap: 3px;
 }
 
 /* Subtle team color wash behind logo */
@@ -437,8 +439,8 @@ main{
 }
 
 .slot-winner-card .w-logo {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   position: relative;
   z-index: 1;
@@ -495,12 +497,11 @@ main{
 }
 .slot-box.winner-nopick .w-abbr { color: var(--text-muted); }
 
-/* Slot point badge */
+/* Slot point badge — inside winner card flow, not absolute */
 .slot-pts{
-  position:absolute;bottom:3px;left:0;right:0;
-  text-align:center;
   font-family:'Share Tech Mono',monospace;font-size:9px;
   color:var(--gold-score);letter-spacing:0.04em;
+  text-align:center;
 }
 
 /* Reveal animation */
@@ -722,7 +723,7 @@ main{
    Format: 'YYYY.MM.DD.build' — e.g. increment
    the last number for same-day releases.
 ═══════════════════════════════════════════ */
-const APP_VERSION  = '2026.05.28.22';
+const APP_VERSION  = '2026.05.28.24';
 const VERSION_KEY  = 'diamond_version';
 
 function bustCache() {
@@ -1564,9 +1565,9 @@ function renderGameSlot({ game, series, dayRow, today, isPrefilled, isMissed, is
             onerror="this.style.display='none'">
           <span class="w-abbr">${escHtml(winnerAbbr)}</span>
           ${game.scoreStr() ? `<span class="w-score">${escHtml(game.scoreStr())}</span>` : ''}
+          ${ptsHtml}
           ${pickNote ? `<span class="w-pick-note">${escHtml(pickNote)}</span>` : ''}
         </div>
-        ${ptsHtml}
         ${renderTimeBar(game)}
       </div>
     </div>`;
